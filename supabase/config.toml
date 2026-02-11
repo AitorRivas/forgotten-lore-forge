@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.format-and-store]
 verify_jwt = false
+
+[functions.human-edit-review]
+verify_jwt = false

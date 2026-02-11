@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import {
-  ArrowLeft, Sparkles, Users, UserPlus, Map, Castle, Swords, Loader2, Clapperboard, ShieldCheck, Gamepad2, Save,
+  ArrowLeft, Sparkles, Users, UserPlus, Map, Castle, Swords, Loader2, Clapperboard, ShieldCheck, Gamepad2, Save, Pencil, Eye, Send, CheckCircle, AlertTriangle, Info,
 } from "lucide-react";
 
 interface GeneratorModule {
@@ -90,6 +90,10 @@ const Generators = () => {
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [streamContent, setStreamContent] = useState("");
+  const [editMode, setEditMode] = useState(false);
+  const [editedContent, setEditedContent] = useState("");
+  const [reviewing, setReviewing] = useState(false);
+  const [reviewResult, setReviewResult] = useState<any>(null);
 
   const generate = useCallback(async (module: GeneratorModule) => {
     setGenerating(true);
@@ -198,6 +202,45 @@ const Generators = () => {
     }
   }, [streamContent, activeModule]);
 
+  const reviewEdits = useCallback(async () => {
+    if (!streamContent || !editedContent || editedContent === streamContent) {
+      toast.info("No se detectaron cambios");
+      return;
+    }
+    setReviewing(true);
+    setReviewResult(null);
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/human-edit-review`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            original_text: streamContent,
+            edited_text: editedContent,
+          }),
+        }
+      );
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || "Error revisando cambios");
+      }
+      const data = await resp.json();
+      setReviewResult(data.analysis);
+      // Apply human edits to streamContent (human text is sacred)
+      setStreamContent(editedContent);
+      setEditMode(false);
+      toast.success("¡Cambios revisados y aplicados!");
+    } catch (e: any) {
+      toast.error(e.message || "Error revisando");
+    } finally {
+      setReviewing(false);
+    }
+  }, [streamContent, editedContent]);
+
   const currentModule = MODULES.find((m) => m.id === activeModule);
 
   return (
@@ -296,26 +339,61 @@ const Generators = () => {
             </div>
 
             {/* Output */}
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 space-y-4">
               {streamContent ? (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                    className="ornate-border rounded-lg p-6 parchment-bg"
                  >
-                   <div className="flex justify-end mb-3">
-                     <button
-                       onClick={saveContent}
-                       disabled={saving || generating}
-                       className="flex items-center gap-2 px-4 py-2 bg-secondary border border-border rounded hover:border-gold/50 text-sm text-foreground transition-colors disabled:opacity-50"
-                     >
-                       {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                       {saving ? "Guardando..." : "Guardar en Biblioteca"}
-                     </button>
+                   <div className="flex justify-between items-center mb-3">
+                     <div className="flex gap-2">
+                       <button
+                         onClick={() => { setEditMode(false); setReviewResult(null); }}
+                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-display transition-colors ${!editMode ? "bg-gold/20 text-gold border border-gold/40" : "text-muted-foreground hover:text-foreground"}`}
+                       >
+                         <Eye size={13} /> Vista
+                       </button>
+                       <button
+                         onClick={() => { setEditMode(true); setEditedContent(streamContent); }}
+                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-display transition-colors ${editMode ? "bg-gold/20 text-gold border border-gold/40" : "text-muted-foreground hover:text-foreground"}`}
+                       >
+                         <Pencil size={13} /> Editar
+                       </button>
+                     </div>
+                     <div className="flex gap-2">
+                       {editMode && (
+                         <button
+                           onClick={reviewEdits}
+                           disabled={reviewing}
+                           className="flex items-center gap-1.5 px-3 py-1.5 bg-accent border border-border rounded text-xs text-foreground hover:border-gold/50 transition-colors disabled:opacity-50"
+                         >
+                           {reviewing ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                           {reviewing ? "Revisando..." : "Revisar Cambios"}
+                         </button>
+                       )}
+                       <button
+                         onClick={saveContent}
+                         disabled={saving || generating}
+                         className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded text-xs text-foreground hover:border-gold/50 transition-colors disabled:opacity-50"
+                       >
+                         {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                         {saving ? "Guardando..." : "Guardar"}
+                       </button>
+                     </div>
                    </div>
-                   <div className="prose-fantasy">
-                     <ReactMarkdown>{streamContent}</ReactMarkdown>
-                   </div>
+
+                   {editMode ? (
+                     <textarea
+                       value={editedContent}
+                       onChange={(e) => setEditedContent(e.target.value)}
+                       className="w-full min-h-[500px] bg-secondary/50 border border-border rounded p-4 text-sm text-foreground font-mono leading-relaxed focus:outline-none focus:border-gold/50 transition-colors resize-y"
+                     />
+                   ) : (
+                     <div className="prose-fantasy">
+                       <ReactMarkdown>{streamContent}</ReactMarkdown>
+                     </div>
+                   )}
                  </motion.div>
               ) : (
                 <div className="ornate-border rounded-lg p-12 parchment-bg text-center">
@@ -330,8 +408,78 @@ const Generators = () => {
                     Describe lo que necesitas o genera contenido aleatorio
                   </p>
                 </div>
-              )}
-            </div>
+               )}
+
+               {/* Review Results Panel */}
+               {reviewResult && (
+                 <motion.div
+                   initial={{ opacity: 0, y: 10 }}
+                   animate={{ opacity: 1, y: 0 }}
+                   className="ornate-border rounded-lg p-5 parchment-bg"
+                 >
+                   <h3 className="font-display text-lg text-gold mb-4 flex items-center gap-2">
+                     <CheckCircle size={18} /> Revisión de Cambios
+                   </h3>
+
+                   {reviewResult.summary && (
+                     <p className="text-sm text-foreground mb-4 p-3 bg-secondary/50 rounded border border-border">
+                       {reviewResult.summary}
+                     </p>
+                   )}
+
+                   {reviewResult.changes_detected?.length > 0 && (
+                     <div className="mb-4">
+                       <h4 className="font-display text-sm text-foreground mb-2">Cambios Detectados</h4>
+                       <div className="space-y-2">
+                         {reviewResult.changes_detected.map((c: any, i: number) => (
+                           <div key={i} className="flex items-start gap-2 text-xs p-2 bg-secondary/30 rounded">
+                             <span className={`mt-0.5 ${c.importance === "critical" ? "text-red-400" : c.importance === "major" ? "text-yellow-400" : "text-muted-foreground"}`}>
+                               {c.importance === "critical" ? <AlertTriangle size={12} /> : c.importance === "major" ? <AlertTriangle size={12} /> : <Info size={12} />}
+                             </span>
+                             <div>
+                               <span className="text-foreground">{c.description}</span>
+                               {c.narrative_impact && <p className="text-muted-foreground mt-0.5">{c.narrative_impact}</p>}
+                             </div>
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   )}
+
+                   {reviewResult.coherence_issues?.length > 0 && (
+                     <div className="mb-4">
+                       <h4 className="font-display text-sm text-foreground mb-2">Coherencia</h4>
+                       <div className="space-y-2">
+                         {reviewResult.coherence_issues.map((c: any, i: number) => (
+                           <div key={i} className="text-xs p-2 bg-secondary/30 rounded">
+                             <span className={c.severity === "error" ? "text-red-400" : c.severity === "warning" ? "text-yellow-400" : "text-blue-400"}>
+                               [{c.severity}]
+                             </span>{" "}
+                             <span className="text-foreground">{c.issue}</span>
+                             {c.suggestion && <p className="text-muted-foreground mt-1">💡 {c.suggestion}</p>}
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   )}
+
+                   {reviewResult.improvement_suggestions?.length > 0 && (
+                     <div>
+                       <h4 className="font-display text-sm text-foreground mb-2">Sugerencias de Mejora</h4>
+                       <div className="space-y-2">
+                         {reviewResult.improvement_suggestions.map((s: any, i: number) => (
+                           <div key={i} className="text-xs p-2 bg-secondary/30 rounded">
+                             <span className="text-gold">{s.area}:</span>{" "}
+                             <span className="text-foreground">{s.suggestion}</span>
+                             {s.reason && <p className="text-muted-foreground mt-0.5">{s.reason}</p>}
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   )}
+                 </motion.div>
+               )}
+             </div>
           </div>
         ) : (
           <div className="ornate-border rounded-lg p-16 parchment-bg text-center">
