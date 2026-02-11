@@ -116,14 +116,14 @@ serve(async (req) => {
       ? `Convierte este contenido en un guión de sesión ejecutable:\n\n${customPrompt}`
       : `Crea un guión de sesión completo y original para un grupo de aventureros de nivel 5-7 en Forgotten Realms. Incluye 3-4 escenas conectadas, encuentro principal, árbol de decisiones ramificadas, pistas y un cliffhanger épico.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`,
+        Authorization: `Bearer ${Deno.env.get("GEMINI_API_KEY")}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "gemini-2.5-pro",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: prompt },

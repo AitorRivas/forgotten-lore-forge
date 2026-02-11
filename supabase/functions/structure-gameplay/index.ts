@@ -147,14 +147,14 @@ serve(async (req) => {
       ? `Transforma el siguiente contenido narrativo en formato de gameplay estructurado y mecánicamente jugable para D&D 5e:\n\n${customPrompt}`
       : `Crea una estructura de gameplay completa y original para una sesión de D&D 5e nivel 5-7 en Forgotten Realms. Incluye 3-4 escenas con mecánicas detalladas, encuentros con stats, ganchos narrativos, objetivos claros y tabla de consecuencias.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`,
+        Authorization: `Bearer ${Deno.env.get("GEMINI_API_KEY")}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "gemini-2.5-pro",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: prompt },
