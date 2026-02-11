@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import {
-  ArrowLeft, Sparkles, Users, UserPlus, Map, Castle, Swords, Loader2, Clapperboard, ShieldCheck, Gamepad2,
+  ArrowLeft, Sparkles, Users, UserPlus, Map, Castle, Swords, Loader2, Clapperboard, ShieldCheck, Gamepad2, Save,
 } from "lucide-react";
 
 interface GeneratorModule {
@@ -88,6 +88,7 @@ const Generators = () => {
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [customPrompt, setCustomPrompt] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [streamContent, setStreamContent] = useState("");
 
   const generate = useCallback(async (module: GeneratorModule) => {
@@ -166,6 +167,36 @@ const Generators = () => {
       setGenerating(false);
     }
   }, [customPrompt]);
+
+  const saveContent = useCallback(async () => {
+    if (!streamContent || !activeModule) return;
+    setSaving(true);
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/format-and-store`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            content: streamContent,
+            content_type: activeModule,
+          }),
+        }
+      );
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || "Error guardando contenido");
+      }
+      toast.success("¡Contenido guardado en tu biblioteca!");
+    } catch (e: any) {
+      toast.error(e.message || "Error guardando");
+    } finally {
+      setSaving(false);
+    }
+  }, [streamContent, activeModule]);
 
   const currentModule = MODULES.find((m) => m.id === activeModule);
 
@@ -270,12 +301,22 @@ const Generators = () => {
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="ornate-border rounded-lg p-6 parchment-bg"
-                >
-                  <div className="prose-fantasy">
-                    <ReactMarkdown>{streamContent}</ReactMarkdown>
-                  </div>
-                </motion.div>
+                   className="ornate-border rounded-lg p-6 parchment-bg"
+                 >
+                   <div className="flex justify-end mb-3">
+                     <button
+                       onClick={saveContent}
+                       disabled={saving || generating}
+                       className="flex items-center gap-2 px-4 py-2 bg-secondary border border-border rounded hover:border-gold/50 text-sm text-foreground transition-colors disabled:opacity-50"
+                     >
+                       {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                       {saving ? "Guardando..." : "Guardar en Biblioteca"}
+                     </button>
+                   </div>
+                   <div className="prose-fantasy">
+                     <ReactMarkdown>{streamContent}</ReactMarkdown>
+                   </div>
+                 </motion.div>
               ) : (
                 <div className="ornate-border rounded-lg p-12 parchment-bg text-center">
                   <currentModule.icon

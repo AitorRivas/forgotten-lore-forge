@@ -62,6 +62,65 @@ export type Database = {
         }
         Relationships: []
       }
+      generated_content: {
+        Row: {
+          campaign_id: string | null
+          content_type: string
+          created_at: string
+          editable_text: string
+          id: string
+          metadata: Json | null
+          narrative_hooks: Json | null
+          relationships: Json | null
+          reusable_elements: Json | null
+          summary: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          content_type: string
+          created_at?: string
+          editable_text: string
+          id?: string
+          metadata?: Json | null
+          narrative_hooks?: Json | null
+          relationships?: Json | null
+          reusable_elements?: Json | null
+          summary?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string | null
+          content_type?: string
+          created_at?: string
+          editable_text?: string
+          id?: string
+          metadata?: Json | null
+          narrative_hooks?: Json | null
+          relationships?: Json | null
+          reusable_elements?: Json | null
+          summary?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_content_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       missions: {
         Row: {
           campaign_id: string
