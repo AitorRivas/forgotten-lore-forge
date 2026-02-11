@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.generate-session-script]
 verify_jwt = false
+
+[functions.validate-lore]
+verify_jwt = false
