@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.human-edit-review]
 verify_jwt = false
+
+[functions.generate-consequences]
+verify_jwt = false
