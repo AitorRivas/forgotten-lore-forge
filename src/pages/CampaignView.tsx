@@ -3,9 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { ArrowLeft, Sparkles, Scroll, BookOpen } from "lucide-react";
+import { ArrowLeft, Sparkles, Scroll, BookOpen, Compass } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import CampaignContextPanel from "@/components/CampaignContextPanel";
+import CampaignAnalysisPanel, { type CampaignAnalysis } from "@/components/CampaignAnalysisPanel";
 
 interface Campaign {
   id: string;
@@ -38,6 +39,9 @@ const CampaignView = () => {
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [userId, setUserId] = useState<string>("");
   const [showContext, setShowContext] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysis, setAnalysis] = useState<CampaignAnalysis | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -80,6 +84,36 @@ const CampaignView = () => {
     }
     setLoading(false);
   };
+
+  const analyzeCampaign = useCallback(async () => {
+    if (!campaign) return;
+    setAnalyzing(true);
+    setShowAnalysis(true);
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-campaign`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ campaignId: campaign.id }),
+        }
+      );
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || "Error analizando campaña");
+      }
+      const data = await resp.json();
+      setAnalysis(data.analysis);
+      toast.success("Análisis completado");
+    } catch (e: any) {
+      toast.error(e.message || "Error en el análisis");
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [campaign]);
 
   const generateMission = useCallback(async () => {
     if (!campaign || !userId) return;
@@ -245,25 +279,37 @@ const CampaignView = () => {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => setShowContext(!showContext)}
-            className={`flex items-center gap-2 text-sm font-display px-3 py-1.5 rounded transition-colors ${
-              showContext ? "bg-primary text-primary-foreground" : "text-gold hover:text-gold-light border border-border"
-            }`}
-          >
-            <BookOpen size={16} />
-            Contexto
-            {contextCount > 0 && (
-              <span className="bg-secondary text-muted-foreground text-xs px-1.5 py-0.5 rounded">
-                {contextCount}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { if (!showAnalysis) { setShowContext(false); analyzeCampaign(); } else { setShowAnalysis(false); } }}
+              disabled={analyzing}
+              className={`flex items-center gap-2 text-sm font-display px-3 py-1.5 rounded transition-colors ${
+                showAnalysis ? "bg-primary text-primary-foreground" : "text-gold hover:text-gold-light border border-border"
+              }`}
+            >
+              <Compass size={16} className={analyzing ? "animate-spin" : ""} />
+              Análisis
+            </button>
+            <button
+              onClick={() => { setShowAnalysis(false); setShowContext(!showContext); }}
+              className={`flex items-center gap-2 text-sm font-display px-3 py-1.5 rounded transition-colors ${
+                showContext ? "bg-primary text-primary-foreground" : "text-gold hover:text-gold-light border border-border"
+              }`}
+            >
+              <BookOpen size={16} />
+              Contexto
+              {contextCount > 0 && (
+                <span className="bg-secondary text-muted-foreground text-xs px-1.5 py-0.5 rounded">
+                  {contextCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className={`grid gap-6 ${showContext ? "grid-cols-1 lg:grid-cols-4" : "grid-cols-1 lg:grid-cols-3"}`}>
+        <div className={`grid gap-6 ${(showContext || showAnalysis) ? "grid-cols-1 lg:grid-cols-4" : "grid-cols-1 lg:grid-cols-3"}`}>
           {/* Sidebar - Generator + Missions */}
           <div className="lg:col-span-1 space-y-4">
             <div className="ornate-border rounded-lg p-5 parchment-bg">
@@ -360,17 +406,25 @@ const CampaignView = () => {
             )}
           </div>
 
-          {/* Context Panel */}
-          {showContext && (
+          {/* Side Panel: Analysis or Context */}
+          {(showAnalysis || showContext) && (
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               className="lg:col-span-1 max-h-[calc(100vh-200px)] overflow-y-auto"
             >
-              <CampaignContextPanel
-                campaign={campaign}
-                onUpdated={fetchCampaign}
-              />
+              {showAnalysis ? (
+                <CampaignAnalysisPanel
+                  analysis={analysis}
+                  loading={analyzing}
+                  onAnalyze={analyzeCampaign}
+                />
+              ) : (
+                <CampaignContextPanel
+                  campaign={campaign}
+                  onUpdated={fetchCampaign}
+                />
+              )}
             </motion.div>
           )}
         </div>
