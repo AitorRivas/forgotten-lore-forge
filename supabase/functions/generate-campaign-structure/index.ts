@@ -6,6 +6,30 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+async function callAIWithFallback(messages: any[], options: { model?: string; stream?: boolean } = {}) {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const geminiModel = options.model || "gemini-2.5-pro";
+  const body: any = { model: geminiModel, messages };
+  if (options.stream) body.stream = true;
+
+  if (GEMINI_API_KEY) {
+    const resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+      method: "POST", headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    if (resp.ok) return resp;
+    if (resp.status !== 429) { console.error("Gemini error:", resp.status); } else console.log("Gemini rate limited, trying Lovable AI...");
+  }
+  if (LOVABLE_API_KEY) {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST", headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ ...body, model: `google/${geminiModel}` }),
+    });
+    if (resp.ok) return resp;
+    console.error("Lovable AI error:", resp.status);
+  }
+  return null;
+}
+
 const SYSTEM_PROMPT = `Eres un arquitecto narrativo profesional para campañas de Dungeons & Dragons 5e en Forgotten Realms.
 
 Tu trabajo es construir la ESTRUCTURA COMPLETA de una campaña: actos, capítulos, misiones detalladas, con evolución narrativa coherente.
@@ -47,79 +71,45 @@ Para cada MISIÓN dentro del capítulo:
 ---
 
 ### 🦹 Evolución del Antagonista
-[Cómo cambia el antagonista a lo largo de los actos — sus planes, reacciones a los jugadores, escalada]
+[Cómo cambia el antagonista a lo largo de los actos]
 
 ### 🎭 Eventos Sociales Clave
-[Momentos diplomáticos, festivales, juicios, bodas, funerales que marcan la campaña]
+[Momentos diplomáticos, festivales, juicios, bodas, funerales]
 
 ### 🔍 Arcos de Investigación
-[Misterios que los jugadores van desentrañando a lo largo de múltiples sesiones]
+[Misterios que los jugadores van desentrañando]
 
 ### ⚔️ Combates Épicos
-[Los 3-5 combates más importantes de la campaña con contexto narrativo]
+[Los 3-5 combates más importantes]
 
 ### 🧩 Puzzles y Desafíos
-[Puzzles, acertijos o desafíos lógicos integrados en la narrativa]
+[Puzzles, acertijos o desafíos lógicos integrados]
 
 ### 🔚 Finales Múltiples
-[Al menos 3 posibles finales dependiendo de las decisiones del grupo]`;
+[Al menos 3 posibles finales]`;
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const { customPrompt } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
-
     let userPrompt = "Construye la estructura completa de una campaña épica de D&D 5e en Forgotten Realms con actos, capítulos, misiones detalladas y finales múltiples.";
-    if (customPrompt) {
-      userPrompt += `\n\nINSTRUCCIONES DEL USUARIO:\n${customPrompt}`;
+    if (customPrompt) userPrompt += `\n\nINSTRUCCIONES DEL USUARIO:\n${customPrompt}`;
+
+    const response = await callAIWithFallback(
+      [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userPrompt }],
+      { model: "gemini-2.5-pro", stream: true }
+    );
+
+    if (!response) {
+      return new Response(JSON.stringify({ error: "Ambos servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-2.5-pro",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        stream: true,
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Demasiadas solicitudes. Espera un momento." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos agotados." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const t = await response.text();
-      console.error("AI error:", response.status, t);
-      return new Response(JSON.stringify({ error: "Error del servicio de IA" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-    });
+    return new Response(response.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
   } catch (e) {
     console.error("generate-campaign-structure error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Error desconocido" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Error desconocido" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

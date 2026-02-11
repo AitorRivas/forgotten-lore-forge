@@ -6,6 +6,57 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+async function callAIWithFallback(messages: any[], options: { model?: string; stream?: boolean; temperature?: number; response_mime_type?: string } = {}) {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const geminiModel = options.model || "gemini-2.5-pro";
+  const lovableModel = `google/${geminiModel}`;
+  const body: any = { model: geminiModel, messages };
+  if (options.stream) body.stream = true;
+  if (options.temperature !== undefined) body.temperature = options.temperature;
+  if (options.response_mime_type) body.response_mime_type = options.response_mime_type;
+
+  // Try Gemini first
+  if (GEMINI_API_KEY) {
+    const resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (resp.ok) return resp;
+    if (resp.status !== 429) {
+      const t = await resp.text();
+      console.error("Gemini error:", resp.status, t);
+      // Fall through to Lovable AI
+    } else {
+      console.log("Gemini rate limited, falling back to Lovable AI...");
+    }
+  }
+
+  // Fallback to Lovable AI
+  if (LOVABLE_API_KEY) {
+    const lovableBody = { ...body, model: lovableModel };
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify(lovableBody),
+    });
+    if (resp.ok) return resp;
+    if (resp.status === 429) {
+      console.error("Both Gemini and Lovable AI rate limited");
+      return null; // Both failed
+    }
+    if (resp.status === 402) {
+      console.error("Lovable AI: payment required");
+      return null;
+    }
+    const t = await resp.text();
+    console.error("Lovable AI error:", resp.status, t);
+  }
+
+  return null;
+}
+
 const SYSTEM_PROMPT = `Eres un experto creador de Personajes No Jugadores (PNJs/NPCs) para Dungeons & Dragons 5e en Forgotten Realms.
 
 Genera PNJs profundos, complejos, con motivaciones ocultas y utilidad narrativa real para el DM.
@@ -67,46 +118,25 @@ serve(async (req) => {
 
   try {
     const { customPrompt } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
     let userPrompt = "Genera un PNJ profundo, memorable y narrativamente útil para una campaña de D&D 5e en Forgotten Realms.";
     if (customPrompt) {
       userPrompt += `\n\nINSTRUCCIONES DEL USUARIO:\n${customPrompt}`;
     }
 
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-2.5-pro",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        stream: true,
-      }),
-    });
+    const response = await callAIWithFallback(
+      [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+      { model: "gemini-2.5-pro", stream: true }
+    );
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Demasiadas solicitudes. Espera un momento." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos agotados." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const t = await response.text();
-      console.error("AI error:", response.status, t);
-      return new Response(JSON.stringify({ error: "Error del servicio de IA" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!response) {
+      return new Response(
+        JSON.stringify({ error: "Ambos servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(response.body, {

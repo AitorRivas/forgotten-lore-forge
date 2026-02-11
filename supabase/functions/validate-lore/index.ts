@@ -6,19 +6,43 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+async function callAIWithFallback(messages: any[], options: { model?: string; stream?: boolean } = {}) {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const geminiModel = options.model || "gemini-2.5-pro";
+  const body: any = { model: geminiModel, messages };
+  if (options.stream) body.stream = true;
+
+  if (GEMINI_API_KEY) {
+    const resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+      method: "POST", headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    if (resp.ok) return resp;
+    if (resp.status !== 429) console.error("Gemini error:", resp.status); else console.log("Gemini rate limited, trying Lovable AI...");
+  }
+  if (LOVABLE_API_KEY) {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST", headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ ...body, model: `google/${geminiModel}` }),
+    });
+    if (resp.ok) return resp;
+    console.error("Lovable AI error:", resp.status);
+  }
+  return null;
+}
+
 const SYSTEM_PROMPT = `Eres un experto en lore de Forgotten Realms y editor narrativo de campañas de D&D 5e.
 
 Tu trabajo es REVISAR contenido generado y validar su coherencia. No inventas contenido nuevo — solo corriges y señalas problemas.
 
 PROCESO DE VALIDACIÓN:
 
-1. **Coherencia con Forgotten Realms:** Verifica que nombres, lugares, facciones, deidades, eventos históricos, geografía y cultura sean consistentes con el canon oficial de Forgotten Realms (hasta 1492 DR). Señala cualquier error de lore.
+1. **Coherencia con Forgotten Realms:** Verifica nombres, lugares, facciones, deidades, eventos históricos, geografía y cultura.
 
-2. **Coherencia interna de campaña:** Si se proporciona contexto de campaña, verifica que el contenido no contradiga eventos previos, decisiones del grupo, NPCs establecidos, relaciones entre facciones, ni la línea temporal interna.
+2. **Coherencia interna de campaña:** Verifica que el contenido no contradiga eventos previos ni decisiones del grupo.
 
-3. **Coherencia de PNJs:** Verifica que los PNJs mencionados mantengan personalidad, motivaciones y afiliaciones consistentes con sus apariciones previas. Señala cambios de comportamiento inexplicados.
+3. **Coherencia de PNJs:** Verifica personalidad, motivaciones y afiliaciones consistentes.
 
-4. **Progresión narrativa:** Evalúa si el contenido progresa lógicamente desde los eventos anteriores. Señala saltos narrativos, escaladas abruptas, o resoluciones demasiado convenientes.
+4. **Progresión narrativa:** Evalúa si el contenido progresa lógicamente.
 
 FORMATO DE RESPUESTA (usa markdown):
 
@@ -27,120 +51,48 @@ FORMATO DE RESPUESTA (usa markdown):
 ### 📊 Resultado General
 - **Estado:** [✅ Válido | ⚠️ Con observaciones | ❌ Requiere correcciones]
 - **Puntuación de coherencia:** [1-10]
-- **Errores críticos:** [número]
-- **Advertencias:** [número]
-
----
 
 ### 🌍 Coherencia con Forgotten Realms
-[Para cada problema encontrado:]
-
-**[✅|⚠️|❌] [Elemento revisado]**
-- **Problema:** [qué está mal]
-- **Lore correcto:** [cómo debería ser según el canon]
-- **Corrección sugerida:** [cómo arreglarlo sin alterar la intención]
-
-[Si todo es correcto: "Sin problemas detectados."]
-
----
+[Problemas y correcciones]
 
 ### 📜 Coherencia con la Campaña
-[Para cada inconsistencia:]
-
-**[⚠️|❌] [Elemento inconsistente]**
-- **Contradicción detectada:** [qué contradice]
-- **Contexto previo:** [qué se estableció antes]
-- **Corrección sugerida:** [cómo reconciliar]
-
----
+[Inconsistencias]
 
 ### 🧍 Coherencia de PNJs
-[Para cada PNJ revisado:]
-
-**[✅|⚠️|❌] [Nombre del PNJ]**
-- **Consistencia de personalidad:** [coherente / inconsistente — por qué]
-- **Motivaciones:** [alineadas / contradictorias]
-- **Afiliaciones:** [correctas / alteradas sin justificación]
-- **Corrección sugerida:** [si aplica]
-
----
+[Revisión de PNJs]
 
 ### 📈 Progresión Narrativa
-- **Flujo lógico:** [¿los eventos siguen una secuencia coherente?]
-- **Escalada apropiada:** [¿el nivel de amenaza progresa correctamente?]
-- **Resoluciones:** [¿son ganadas o demasiado convenientes?]
-- **Saltos narrativos:** [¿hay huecos que necesiten explicación?]
-
----
+[Evaluación]
 
 ### 🔧 Contenido Corregido
-[Si hay correcciones necesarias, reescribe SOLO las partes problemáticas manteniendo la intención original del autor. No reescribas todo el contenido — solo las secciones que necesitan corrección.]
-
-**Sección corregida 1:**
-> [Texto original problemático]
-
-→ [Texto corregido con justificación breve]
-
----
+[Solo secciones problemáticas]
 
 ### 📌 Recomendaciones Finales
-- [Sugerencia 1 para mejorar coherencia futura]
-- [Sugerencia 2]
-- [Sugerencia 3]`;
+[Sugerencias]`;
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const { customPrompt } = await req.json();
-
     const prompt = customPrompt
-      ? `Revisa y valida el siguiente contenido generado para D&D 5e en Forgotten Realms. Corrige inconsistencias sin alterar la intención original:\n\n${customPrompt}`
-      : `Genera un ejemplo de informe de validación mostrando cómo revisarías una misión típica de D&D 5e en Forgotten Realms. Incluye ejemplos de errores de lore comunes, inconsistencias de campaña y correcciones sugeridas.`;
+      ? `Revisa y valida el siguiente contenido para D&D 5e en Forgotten Realms:\n\n${customPrompt}`
+      : `Genera un ejemplo de informe de validación para una misión típica de D&D 5e en Forgotten Realms.`;
 
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${Deno.env.get("GEMINI_API_KEY")}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-2.5-pro",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: prompt },
-        ],
-        stream: true,
-      }),
-    });
+    const response = await callAIWithFallback(
+      [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: prompt }],
+      { model: "gemini-2.5-pro", stream: true }
+    );
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required, please add funds." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const text = await response.text();
-      console.error("AI gateway error:", response.status, text);
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!response) {
+      return new Response(JSON.stringify({ error: "Ambos servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-    });
+    return new Response(response.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
   } catch (e) {
     console.error("validate-lore error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
