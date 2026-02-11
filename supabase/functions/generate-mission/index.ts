@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,10 +11,11 @@ const SYSTEM_PROMPT = `Eres un motor profesional de generación narrativa para D
 
 OBJETIVO: Generar contenido jugable, coherente, diverso y estructurado para campañas reales.
 
-REGLAS:
+REGLAS CRÍTICAS:
 - Usa únicamente lore oficial de Forgotten Realms.
 - Mantén coherencia histórica, geográfica y política.
 - Introduce conflictos claros y consecuencias reales.
+- EVITA completamente las regiones, estilos narrativos y arquetipos de villanos ya utilizados por el DM.
 - Cada misión DEBE incluir al menos dos de: intriga social/política, investigación, combate significativo, puzzle/desafío lógico, dilema moral, giro narrativo inesperado.
 
 FORMATO DE RESPUESTA (usa markdown):
@@ -53,57 +55,147 @@ serve(async (req) => {
   }
 
   try {
-    const { campaignName, campaignDescription, levelRange, previousMissions, customPrompt } = await req.json();
+    const {
+      campaignName,
+      campaignDescription,
+      levelRange,
+      campaignId,
+      userId,
+      previousMissions,
+      customPrompt,
+    } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY)
+      throw new Error("Database not configured");
+
+    // Initialize Supabase client for backend operations
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Fetch user context
+    const { data: userContext, error: contextError } = await supabase
+      .from("user_context")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+
+    if (contextError && contextError.code !== "PGRST116") {
+      console.error("Error fetching user context:", contextError);
+    }
+
+    // Fetch campaign metadata
+    const { data: campaign, error: campaignError } = await supabase
+      .from("campaigns")
+      .select("campaign_metadata")
+      .eq("id", campaignId)
+      .single();
+
+    if (campaignError) {
+      console.error("Error fetching campaign metadata:", campaignError);
+    }
+
+    // Build context awareness prompt
+    let contextPrompt = "";
+
+    if (userContext) {
+      const regionsUsed = (userContext.regions_used || []).slice(-5); // Last 5 regions
+      const stylesUsed = (userContext.narrative_styles || []).slice(-3); // Last 3 styles
+      const recentThemes = (userContext.recent_themes || []).slice(-5); // Last 5 themes
+
+      if (regionsUsed.length > 0) {
+        contextPrompt += `\n\nREGIONES YA UTILIZADAS (EVITA):\n${regionsUsed.join(", ")}`;
+      }
+      if (stylesUsed.length > 0) {
+        contextPrompt += `\n\nESTILOS NARRATIVOS RECIENTES (VARÍA):\n${stylesUsed.join(", ")}`;
+      }
+      if (recentThemes.length > 0) {
+        contextPrompt += `\n\nTEMAS RECIENTES (BUSCA VARIEDAD):\n${recentThemes.join(", ")}`;
+      }
+    }
+
+    if (campaign?.campaign_metadata) {
+      const metadata = campaign.campaign_metadata;
+      if (metadata.regions?.length > 0) {
+        contextPrompt += `\n\nREGIONES EN ESTA CAMPAÑA:\n${metadata.regions.join(", ")}`;
+      }
+      if (metadata.villain_archetypes?.length > 0) {
+        contextPrompt += `\n\nARQUETIPOS DE VILLANOS YA USADOS EN ESTA CAMPAÑA:\n${metadata.villain_archetypes.join(", ")}`;
+      }
+    }
 
     let userPrompt = `Genera una misión para la campaña "${campaignName}".`;
-    if (campaignDescription) userPrompt += `\nDescripción de la campaña: ${campaignDescription}`;
-    if (levelRange) userPrompt += `\nRango de nivel de los jugadores: ${levelRange}`;
+    if (campaignDescription)
+      userPrompt += `\nDescripción: ${campaignDescription}`;
+    if (levelRange) userPrompt += `\nNivel: ${levelRange}`;
+
     if (previousMissions && previousMissions.length > 0) {
-      userPrompt += `\n\nMisiones anteriores (mantén continuidad y evita repetir estructuras):\n`;
+      userPrompt += `\n\nMISIONES ANTERIORES (mantén continuidad sin repetir estructuras):\n`;
       previousMissions.forEach((m: string, i: number) => {
         userPrompt += `${i + 1}. ${m}\n`;
       });
     }
-    if (customPrompt) userPrompt += `\n\nInstrucciones adicionales del DM: ${customPrompt}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        stream: true,
-      }),
-    });
+    if (customPrompt) {
+      userPrompt += `\n\nINSTRUCCIONES DEL DM:\n${customPrompt}`;
+    }
+
+    userPrompt += contextPrompt;
+
+    const response = await fetch(
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: userPrompt },
+          ],
+          stream: true,
+        }),
+      }
+    );
 
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Demasiadas solicitudes. Espera un momento antes de intentar de nuevo." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({
+            error: "Demasiadas solicitudes. Espera un momento antes de intentar de nuevo.",
+          }),
+          {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos agotados. Añade más créditos en tu workspace." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({
+            error: "Créditos agotados. Añade más créditos en tu workspace.",
+          }),
+          {
+            status: 402,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
       }
       const t = await response.text();
       console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "Error del servicio de IA" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Error del servicio de IA" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     return new Response(response.body, {
@@ -112,8 +204,13 @@ serve(async (req) => {
   } catch (e) {
     console.error("generate-mission error:", e);
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Error desconocido" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        error: e instanceof Error ? e.message : "Error desconocido",
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
     );
   }
 });

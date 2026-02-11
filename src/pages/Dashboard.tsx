@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Plus, Scroll, LogOut } from "lucide-react";
 import CreateCampaignDialog from "@/components/CreateCampaignDialog";
+import ContextPanel from "@/components/ContextPanel";
 
 interface Campaign {
   id: string;
@@ -19,9 +20,15 @@ const Dashboard = () => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [userId, setUserId] = useState<string>("");
   const navigate = useNavigate();
 
   useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    };
+    getUser();
     fetchCampaigns();
   }, []);
 
@@ -63,21 +70,29 @@ const Dashboard = () => {
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="font-display text-3xl text-foreground">Tus Campañas</h2>
-            <p className="text-muted-foreground mt-1">
-              Gestiona tus aventuras en los Reinos Olvidados
-            </p>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Sidebar */}
+          <div className="lg:col-span-1">
+            {userId && <ContextPanel userId={userId} />}
           </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 bg-primary text-primary-foreground font-display px-5 py-2.5 rounded hover:bg-gold-dark transition-colors"
-          >
-            <Plus size={18} />
-            Nueva Campaña
-          </button>
-        </div>
+
+          {/* Main content */}
+          <div className="lg:col-span-3">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="font-display text-3xl text-foreground">Tus Campañas</h2>
+                <p className="text-muted-foreground mt-1">
+                  Gestiona tus aventuras en los Reinos Olvidados
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCreate(true)}
+                className="flex items-center gap-2 bg-primary text-primary-foreground font-display px-5 py-2.5 rounded hover:bg-gold-dark transition-colors"
+              >
+                <Plus size={18} />
+                Nueva Campaña
+              </button>
+            </div>
 
         {loading ? (
           <div className="text-center text-muted-foreground py-20">
@@ -132,6 +147,8 @@ const Dashboard = () => {
             ))}
           </div>
         )}
+          </div>
+        </div>
       </main>
 
       <CreateCampaignDialog

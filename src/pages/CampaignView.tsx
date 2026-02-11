@@ -31,9 +31,15 @@ const CampaignView = () => {
   const [streamContent, setStreamContent] = useState("");
   const [customPrompt, setCustomPrompt] = useState("");
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
+  const [userId, setUserId] = useState<string>("");
 
   useEffect(() => {
     if (id) {
+      const getUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) setUserId(user.id);
+      };
+      getUser();
       fetchCampaign();
       fetchMissions();
     }
@@ -70,7 +76,7 @@ const CampaignView = () => {
   };
 
   const generateMission = useCallback(async () => {
-    if (!campaign) return;
+    if (!campaign || !userId) return;
     setGenerating(true);
     setStreamContent("");
     setSelectedMission(null);
@@ -90,6 +96,8 @@ const CampaignView = () => {
             campaignName: campaign.name,
             campaignDescription: campaign.description,
             levelRange: campaign.level_range,
+            campaignId: campaign.id,
+            userId: userId,
             previousMissions,
             customPrompt: customPrompt || undefined,
           }),
@@ -147,6 +155,25 @@ const CampaignView = () => {
       const titleMatch = fullContent.match(/##\s*🗡️\s*(.+)/);
       const title = titleMatch ? titleMatch[1].trim() : "Misión sin título";
 
+      // Extract context from mission for learning
+      const locationMatch = fullContent.match(/###\s*📍\s*Ubicación\s*\n(.+?)(?=\n###|$)/s);
+      const location = locationMatch ? locationMatch[1].trim().split("\n")[0] : "";
+      
+      const elementMatch = fullContent.match(/###\s*🧩\s*Elementos\s*\n(.+?)(?=\n###|$)/s);
+      const narrativeType = elementMatch 
+        ? (elementMatch[1].includes("intriga") ? "intriga" : 
+           elementMatch[1].includes("investigación") ? "investigación" :
+           elementMatch[1].includes("combate") ? "combate" : "aventura")
+        : "aventura";
+
+      const npcMatch = fullContent.match(/###\s*🎭\s*NPCs\s*\n(.+?)(?=\n###|$)/s);
+      const mainNpc = npcMatch ? npcMatch[1].trim().split("\n")[0] : "";
+      
+      const mainTheme = title.toLowerCase().includes("dragón") ? "dragones" :
+                       title.toLowerCase().includes("undead") || title.toLowerCase().includes("no-muerto") ? "no-muertos" :
+                       title.toLowerCase().includes("magia oscura") || title.toLowerCase().includes("hechicería") ? "magia_oscura" :
+                       "aventura";
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No autenticado");
 
@@ -161,6 +188,31 @@ const CampaignView = () => {
       if (error) {
         toast.error("Error guardando misión");
       } else {
+        // Update user context for next generation
+        try {
+          await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-context`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: JSON.stringify({
+                campaignId: campaign.id,
+                userId: user.id,
+                missionContent: fullContent,
+                region: location,
+                narrativeStyle: narrativeType,
+                mainTheme: mainTheme,
+                mainVillain: mainNpc,
+              }),
+            }
+          );
+        } catch (contextError) {
+          console.error("Error updating context:", contextError);
+        }
+        
         toast.success("¡Misión generada y guardada!");
         setCustomPrompt("");
         fetchMissions();
@@ -170,7 +222,7 @@ const CampaignView = () => {
     } finally {
       setGenerating(false);
     }
-  }, [campaign, missions, customPrompt]);
+  }, [campaign, missions, customPrompt, userId]);
 
   if (loading || !campaign) {
     return (
