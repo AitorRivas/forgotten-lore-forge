@@ -41,26 +41,36 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-2.5-flash",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: "Genera una campaña original e inesperada para D&D 5e en Faerûn. Sorpréndeme." },
-        ],
-      }),
-    });
+    let response: Response | null = null;
+    const maxRetries = 3;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${GEMINI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gemini-2.5-flash",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: "Genera una campaña original e inesperada para D&D 5e en Faerûn. Sorpréndeme." },
+          ],
+        }),
+      });
 
-    if (!response.ok) {
-      const t = await response.text();
-      console.error("AI error:", response.status, t);
+      if (response!.status !== 429 || attempt === maxRetries) break;
+
+      const waitMs = Math.pow(2, attempt + 1) * 1000;
+      console.log(`Rate limited (attempt ${attempt + 1}/${maxRetries}), waiting ${waitMs}ms...`);
+      await new Promise(r => setTimeout(r, waitMs));
+    }
+
+    if (!response || !response.ok) {
+      const t = response ? await response.text() : "No response";
+      console.error("AI error:", response?.status, t);
       return new Response(JSON.stringify({ error: "Error del servicio de IA" }), {
-        status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: response?.status || 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
