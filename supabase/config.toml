@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.generate-investigation]
 verify_jwt = false
+
+[functions.generate-hybrid-encounter]
+verify_jwt = false
