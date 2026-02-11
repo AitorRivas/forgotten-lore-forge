@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.structure-gameplay]
 verify_jwt = false
+
+[functions.format-and-store]
+verify_jwt = false
