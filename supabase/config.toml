@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.generate-moral-dilemma]
 verify_jwt = false
+
+[functions.evolve-npc]
+verify_jwt = false
