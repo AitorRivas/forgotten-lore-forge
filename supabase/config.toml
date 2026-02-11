@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.generate-consequences]
 verify_jwt = false
+
+[functions.generate-social-event]
+verify_jwt = false
