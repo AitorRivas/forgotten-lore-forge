@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       campaigns: {
         Row: {
+          campaign_metadata: Json | null
           created_at: string
           description: string | null
           id: string
@@ -27,6 +28,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          campaign_metadata?: Json | null
           created_at?: string
           description?: string | null
           id?: string
@@ -38,6 +40,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          campaign_metadata?: Json | null
           created_at?: string
           description?: string | null
           id?: string
@@ -114,6 +117,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_context: {
+        Row: {
+          id: string
+          last_updated: string
+          narrative_styles: Json | null
+          npcs_created: Json | null
+          recent_themes: Json | null
+          regions_used: Json | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          last_updated?: string
+          narrative_styles?: Json | null
+          npcs_created?: Json | null
+          recent_themes?: Json | null
+          regions_used?: Json | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          last_updated?: string
+          narrative_styles?: Json | null
+          npcs_created?: Json | null
+          recent_themes?: Json | null
+          regions_used?: Json | null
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
