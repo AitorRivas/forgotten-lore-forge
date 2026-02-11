@@ -8,3 +8,15 @@ verify_jwt = false
 
 [functions.analyze-campaign]
 verify_jwt = false
+
+[functions.generate-pc]
+verify_jwt = false
+
+[functions.generate-npc]
+verify_jwt = false
+
+[functions.generate-campaign-idea]
+verify_jwt = false
+
+[functions.generate-campaign-structure]
+verify_jwt = false
