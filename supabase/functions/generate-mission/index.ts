@@ -9,7 +9,7 @@ const corsHeaders = {
 
 const SYSTEM_PROMPT = `Eres un motor profesional de generación narrativa para Dungeon Masters de Dungeons & Dragons 5e ambientado exclusivamente en Forgotten Realms.
 
-OBJETIVO: Generar contenido jugable, coherente, diverso y estructurado para campañas reales.
+OBJETIVO: Generar contenido jugable, coherente, DIVERSO y estructurado para campañas reales.
 
 REGLAS CRÍTICAS:
 - Usa únicamente lore oficial de Forgotten Realms.
@@ -19,6 +19,60 @@ REGLAS CRÍTICAS:
 - Respeta las decisiones del grupo y sus consecuencias.
 - Introduce nuevos elementos que complementen la narrativa sin contradecirla.
 - Cada misión DEBE incluir al menos dos de: intriga social/política, investigación, combate significativo, puzzle/desafío lógico, dilema moral, giro narrativo inesperado.
+
+=== CONTROL DE DIVERSIDAD Y VARIACIÓN (OBLIGATORIO) ===
+
+Recibirás un ANÁLISIS DE PATRONES que muestra qué se ha usado recientemente. DEBES:
+
+1. **VARIAR CONFLICTOS**: Si los conflictos recientes son militares, usa intriga política, traición interna, crisis religiosa, catástrofe natural, plaga mágica, o conflicto comercial. NUNCA repitas el mismo tipo de conflicto dos veces seguidas.
+
+2. **CAMBIAR DINÁMICAS SOCIALES**: Alterna entre:
+   - Aliados que se vuelven enemigos / enemigos que piden ayuda
+   - Dilemas donde no hay "lado bueno"
+   - Traiciones inesperadas de NPCs de confianza
+   - Facciones neutrales que se ven forzadas a tomar partido
+   - Víctimas que resultan ser culpables / villanos con razones legítimas
+
+3. **INTRODUCIR ELEMENTOS INESPERADOS**: Cada misión DEBE tener al menos un elemento que rompa las expectativas:
+   - Giros de trama que recontextualicen eventos previos
+   - Revelaciones que cambien la percepción de un NPC conocido
+   - Consecuencias inesperadas de acciones pasadas del grupo
+   - Amenazas de fuentes completamente nuevas e imprevistas
+   - Alianzas imposibles forzadas por las circunstancias
+
+4. **EVITAR CLICHÉS REPETITIVOS**: PROHIBIDO repetir estos patrones si ya se usaron:
+   - "Rescata al prisionero" consecutivamente
+   - "Mata al monstruo en la cueva" sin variación
+   - "El mercader pide escolta" de nuevo
+   - "La taberna es atacada" otra vez
+   - Mismo tipo de villano (si el último fue un nigromante, el siguiente NO puede ser otro nigromante)
+   - Misma estructura (si la última fue lineal, la siguiente debe ser abierta/sandbox)
+
+5. **ROTAR TIPOS DE MISIÓN**: Alterna entre estas categorías, priorizando las MENOS usadas:
+   - Investigación/misterio
+   - Diplomacia/negociación
+   - Exploración/descubrimiento
+   - Defensa/protección
+   - Infiltración/sigilo
+   - Supervivencia/escape
+   - Heist/robo elaborado
+   - Juicio/debate/tribunal
+   - Carrera contra el tiempo
+   - Guerra de información/espionaje
+
+6. **VARIAR ANTAGONISTAS**: Si se proporciona lista de antagonistas usados, el nuevo antagonista DEBE ser de un tipo diferente. Categorías:
+   - Político corrupto / Noble ambicioso
+   - Culto o secta
+   - Criatura ancestral / Aberración
+   - Organización criminal
+   - Hechicero renegado / Mago loco
+   - Entidad extraplanar
+   - Fuerza de la naturaleza / Bestia primordial
+   - Autómata / Constructo descontrolado
+   - Traidor interno / Doble agente
+   - Amenaza colectiva (plaga, hambruna, desastre)
+
+=== FIN CONTROL DE DIVERSIDAD ===
 
 FORMATO DE RESPUESTA (usa markdown):
 
@@ -51,8 +105,124 @@ FORMATO DE RESPUESTA (usa markdown):
 ### 🔗 Conexiones con la Campaña
 [Cómo esta misión conecta con eventos previos, avanza conflictos abiertos, y siembra semillas para el futuro]
 
+### 🎲 Variación Narrativa
+[Explica brevemente qué elementos nuevos introduces respecto a misiones anteriores y por qué]
+
 ### 📝 Notas para el DM
 [Consejos de interpretación, música sugerida, variaciones posibles]`;
+
+// Analyze patterns from recent missions to build diversity constraints
+function analyzePatternsFromMissions(missions: any[]): string {
+  if (!missions || missions.length === 0) return "";
+
+  const patterns: string[] = [];
+
+  // Extract mission types/structures from titles and content
+  const titles = missions.map((m: any) => m.title).filter(Boolean);
+  if (titles.length > 0) {
+    patterns.push(`TÍTULOS DE MISIONES RECIENTES (NO repitas estructuras similares):\n${titles.map((t: string) => `- "${t}"`).join("\n")}`);
+  }
+
+  // Analyze content for repeated patterns
+  const allContent = missions
+    .map((m: any) => m.full_content || m.summary || "")
+    .join("\n")
+    .toLowerCase();
+
+  const detectedPatterns: string[] = [];
+
+  // Detect antagonist types
+  const antagonistTypes: Record<string, string[]> = {
+    "nigromante/no-muertos": ["nigromante", "no-muerto", "undead", "zombi", "esqueleto", "lich", "necromanc"],
+    "dragón": ["dragón", "dragon", "wyrm", "draco"],
+    "culto/secta": ["culto", "secta", "cultist", "ritual oscuro", "sacrificio"],
+    "bandidos/criminales": ["bandido", "ladrón", "criminal", "contrabandist", "asesino", "gremio de ladrones"],
+    "demonio/diablo": ["demonio", "diablo", "infernal", "abiso", "fiend"],
+    "goblinoides": ["goblin", "hobgoblin", "bugbear", "orco"],
+    "hechicero/mago": ["hechicero", "mago", "archimago", "brujo"],
+    "político/noble": ["noble", "lord", "señor", "barón", "duque", "político", "consejo"],
+  };
+
+  const usedAntagonistTypes: string[] = [];
+  for (const [type, keywords] of Object.entries(antagonistTypes)) {
+    if (keywords.some(k => allContent.includes(k))) {
+      usedAntagonistTypes.push(type);
+    }
+  }
+  if (usedAntagonistTypes.length > 0) {
+    detectedPatterns.push(`Tipos de antagonista ya usados: ${usedAntagonistTypes.join(", ")}. USA UN TIPO DIFERENTE.`);
+  }
+
+  // Detect mission structures
+  const structureTypes: Record<string, string[]> = {
+    "rescate": ["rescata", "salvar", "prisionero", "cautivo", "liberar", "secuestr"],
+    "escolta/viaje": ["escolta", "acompañar", "viaje", "caravana", "transporte"],
+    "caza de monstruo": ["caza", "matar", "bestia", "criatura", "guarida", "cueva"],
+    "investigación": ["investiga", "pista", "misterio", "descubrir", "averiguar"],
+    "defensa": ["defender", "proteger", "asedio", "ataque a", "invasión"],
+    "exploración": ["explora", "ruinas", "templo antiguo", "catacumbas", "dungeon"],
+    "diplomacia": ["negociar", "tratado", "alianza", "embajad", "diplomacia"],
+    "infiltración": ["infiltra", "sigilo", "espía", "disfraz", "encubierto"],
+  };
+
+  const usedStructures: string[] = [];
+  for (const [type, keywords] of Object.entries(structureTypes)) {
+    if (keywords.some(k => allContent.includes(k))) {
+      usedStructures.push(type);
+    }
+  }
+  if (usedStructures.length > 0) {
+    detectedPatterns.push(`Estructuras de misión ya usadas: ${usedStructures.join(", ")}. ELIGE UNA ESTRUCTURA DIFERENTE.`);
+  }
+
+  // Detect dominant tones
+  const toneTypes: Record<string, string[]> = {
+    "combate pesado": ["batalla", "guerra", "ejército", "asalto", "combate"],
+    "horror": ["horror", "terror", "miedo", "pesadilla", "macabro"],
+    "misterio": ["misterio", "enigma", "acertijo", "secreto", "oculto"],
+    "político": ["política", "intriga", "corte", "consejo", "facción"],
+    "exploración": ["viaje", "descubrimiento", "territorio", "mapa", "expedición"],
+  };
+
+  const usedTones: string[] = [];
+  for (const [type, keywords] of Object.entries(toneTypes)) {
+    if (keywords.some(k => allContent.includes(k))) {
+      usedTones.push(type);
+    }
+  }
+  if (usedTones.length > 0) {
+    detectedPatterns.push(`Tonos dominantes recientes: ${usedTones.join(", ")}. CAMBIA EL TONO DOMINANTE.`);
+  }
+
+  // Detect location types
+  const locationTypes: Record<string, string[]> = {
+    "mazmorra/cueva": ["cueva", "mazmorra", "dungeon", "subterráneo", "catacumba"],
+    "ciudad": ["ciudad", "pueblo", "villa", "metrópolis", "urbano"],
+    "bosque/naturaleza": ["bosque", "selva", "naturaleza", "arboleda", "pantano"],
+    "mar/costa": ["mar", "costa", "barco", "puerto", "isla"],
+    "montaña": ["montaña", "cumbre", "paso", "fortaleza de montaña"],
+    "desierto": ["desierto", "arena", "oasis", "caluroso"],
+    "planar": ["plano", "extraplanar", "feywild", "shadowfell", "ethereal"],
+  };
+
+  const usedLocations: string[] = [];
+  for (const [type, keywords] of Object.entries(locationTypes)) {
+    if (keywords.some(k => allContent.includes(k))) {
+      usedLocations.push(type);
+    }
+  }
+  if (usedLocations.length > 0) {
+    detectedPatterns.push(`Tipos de ubicación recientes: ${usedLocations.join(", ")}. USA UNA UBICACIÓN DE TIPO DIFERENTE.`);
+  }
+
+  if (detectedPatterns.length > 0) {
+    patterns.push(`\nPATRONES DETECTADOS — EVITA REPETIRLOS:\n${detectedPatterns.map(p => `⚠️ ${p}`).join("\n")}`);
+  }
+
+  return patterns.length > 0
+    ? `\n\n=== ANÁLISIS DE DIVERSIDAD (OBLIGATORIO) ===\n${patterns.join("\n\n")}\n=== FIN ANÁLISIS DE DIVERSIDAD ===`
+    : "";
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -83,13 +253,22 @@ serve(async (req) => {
       throw new Error("Campaña no encontrada");
     }
 
-    // Fetch previous missions
+    // Fetch previous missions (more for better diversity analysis)
     const { data: missions } = await supabase
       .from("missions")
       .select("title, summary, full_content")
       .eq("campaign_id", campaignId)
       .order("created_at", { ascending: false })
-      .limit(8);
+      .limit(10);
+
+    // Also fetch missions from OTHER campaigns of this user for cross-campaign diversity
+    const { data: otherMissions } = await supabase
+      .from("missions")
+      .select("title, summary")
+      .eq("user_id", userId)
+      .neq("campaign_id", campaignId)
+      .order("created_at", { ascending: false })
+      .limit(5);
 
     // Fetch user context
     const { data: userContext } = await supabase
@@ -148,7 +327,7 @@ serve(async (req) => {
       campaignContext += `\n\nREGIONES YA EXPLORADAS:\n${ctx.regions_explored.join(", ")}`;
     }
 
-    // Previous missions
+    // Previous missions for continuity
     if (missions && missions.length > 0) {
       campaignContext += `\n\nMISIONES ANTERIORES (mantén continuidad, no repitas estructuras):\n`;
       missions.forEach((m: any, i: number) => {
@@ -158,19 +337,39 @@ serve(async (req) => {
 
     // User-level variety context
     if (userContext) {
-      const recentStyles = (userContext.narrative_styles || []).slice(-3);
+      const recentStyles = (userContext.narrative_styles || []).slice(-5);
       if (recentStyles.length > 0) {
-        campaignContext += `\n\nESTILOS NARRATIVOS RECIENTES DEL DM (varía):\n${recentStyles.join(", ")}`;
+        campaignContext += `\n\nESTILOS NARRATIVOS RECIENTES DEL DM (usa uno diferente):\n${recentStyles.join(", ")}`;
       }
+      const recentRegions = (userContext.regions_used || []).slice(-5);
+      if (recentRegions.length > 0) {
+        campaignContext += `\n\nREGIONES USADAS GLOBALMENTE POR ESTE DM:\n${recentRegions.join(", ")}`;
+      }
+      const recentThemes = (userContext.recent_themes || []).slice(-5);
+      if (recentThemes.length > 0) {
+        campaignContext += `\n\nTEMAS RECIENTES DEL DM (varía):\n${recentThemes.join(", ")}`;
+      }
+    }
+
+    // Cross-campaign diversity
+    if (otherMissions && otherMissions.length > 0) {
+      campaignContext += `\n\nMISIONES RECIENTES EN OTRAS CAMPAÑAS DEL MISMO DM (evita repetir patrones):\n`;
+      otherMissions.forEach((m: any) => {
+        campaignContext += `- ${m.title}\n`;
+      });
     }
 
     campaignContext += `\n=== FIN CONTEXTO ===`;
 
-    let userPrompt = `Genera la siguiente misión para esta campaña.`;
+    // Build diversity analysis from recent mission content
+    const diversityAnalysis = analyzePatternsFromMissions(missions || []);
+
+    let userPrompt = `Genera la siguiente misión para esta campaña. Recuerda: la DIVERSIDAD es obligatoria.`;
     if (customPrompt) {
       userPrompt += `\n\nINSTRUCCIONES ADICIONALES DEL DM:\n${customPrompt}`;
     }
     userPrompt += campaignContext;
+    userPrompt += diversityAnalysis;
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",

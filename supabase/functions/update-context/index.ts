@@ -34,7 +34,11 @@ ${missionContent}
 Responde SOLAMENTE con JSON válido (sin markdown, sin backticks) con esta estructura exacta:
 {
   "location": "nombre del lugar principal",
-  "narrative_style": "tipo: intriga|investigación|combate|exploración|social|puzzle",
+  "location_type": "tipo: ciudad|mazmorra|bosque|mar|montaña|desierto|planar|ruinas|fortaleza",
+  "narrative_style": "tipo: intriga|investigación|combate|exploración|social|puzzle|horror|diplomacia",
+  "mission_type": "tipo: rescate|escolta|caza|investigación|defensa|exploración|diplomacia|infiltración|supervivencia|heist|juicio|espionaje",
+  "antagonist_type": "tipo: político|culto|criatura_ancestral|criminal|hechicero|extraplanar|naturaleza|constructo|traidor|amenaza_colectiva|ninguno",
+  "dominant_theme": "tema principal: venganza|redención|poder|sacrificio|traición|descubrimiento|supervivencia|justicia|ambición|libertad",
   "new_npcs": ["nombre - descripción breve de cada NPC nuevo"],
   "new_antagonists": ["nombre - descripción de cada antagonista"],
   "new_events": ["evento importante que ocurrió o puede ocurrir"],
@@ -150,21 +154,36 @@ Responde SOLAMENTE con JSON válido (sin markdown, sin backticks) con esta estru
         stylesUsed.push(extracted.narrative_style);
       }
 
+      // Track recent themes for diversity
+      const recentThemes = [...(userContext.recent_themes as string[] || [])];
+      const themeEntries = [
+        extracted.mission_type && `misión:${extracted.mission_type}`,
+        extracted.antagonist_type && extracted.antagonist_type !== "ninguno" && `antagonista:${extracted.antagonist_type}`,
+        extracted.dominant_theme && `tema:${extracted.dominant_theme}`,
+        extracted.location_type && `ubicación:${extracted.location_type}`,
+      ].filter(Boolean) as string[];
+      recentThemes.push(...themeEntries);
+
       await supabase
         .from("user_context")
         .update({
           regions_used: regionsUsed.slice(-10),
           narrative_styles: stylesUsed.slice(-8),
+          recent_themes: recentThemes.slice(-20),
+          npcs_created: [...(userContext.npcs_created as string[] || []), ...(extracted.new_npcs || [])].slice(-20),
           last_updated: new Date().toISOString(),
         })
         .eq("user_id", userId);
     } else {
-      // Create user context if it doesn't exist
       await supabase.from("user_context").insert({
         user_id: userId,
         regions_used: extracted.location ? [extracted.location] : [],
         narrative_styles: extracted.narrative_style ? [extracted.narrative_style] : [],
-        recent_themes: [],
+        recent_themes: [
+          extracted.mission_type && `misión:${extracted.mission_type}`,
+          extracted.antagonist_type && `antagonista:${extracted.antagonist_type}`,
+          extracted.dominant_theme && `tema:${extracted.dominant_theme}`,
+        ].filter(Boolean),
         npcs_created: extracted.new_npcs || [],
       });
     }
