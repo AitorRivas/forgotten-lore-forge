@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.simulate-world-state]
 verify_jwt = false
+
+[functions.generate-document]
+verify_jwt = false
