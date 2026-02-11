@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.evolve-npc]
 verify_jwt = false
+
+[functions.generate-location]
+verify_jwt = false
