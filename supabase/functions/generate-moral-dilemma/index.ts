@@ -1,119 +1,22 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
+const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version" };
+async function callAIWithFallback(messages: any[], options: { model?: string; temperature?: number; response_mime_type?: string } = {}) {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY"); const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const geminiModel = options.model || "gemini-2.5-pro"; const body: any = { model: geminiModel, messages };
+  if (options.temperature !== undefined) body.temperature = options.temperature; if (options.response_mime_type) body.response_mime_type = options.response_mime_type;
+  if (GEMINI_API_KEY) { const resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", { method: "POST", headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(body) }); if (resp.ok) return resp; if (resp.status === 429) console.log("Gemini rate limited..."); else console.error("Gemini error:", resp.status); }
+  if (LOVABLE_API_KEY) { const lovBody = { ...body, model: `google/${geminiModel}` }; delete lovBody.response_mime_type; const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", { method: "POST", headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(lovBody) }); if (resp.ok) return resp; } return null;
+}
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
   try {
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
-
     const { region, tone, campaignContext, narrativeContext, partyLevel, dilemmaTheme, specificRequest } = await req.json();
-
-    const systemPrompt = `Eres un diseñador de dilemas morales complejos para D&D 5e en Forgotten Realms.
-Creas situaciones donde no hay respuesta claramente correcta, forzando decisiones significativas con consecuencias reales.
-
-REGLAS:
-- Ninguna opción debe ser objetivamente "la buena" — todas tienen costes reales
-- La información disponible para los PJs debe ser deliberadamente incompleta
-- Las consecuencias deben ramificarse a corto y largo plazo
-- Los PNJs deben reaccionar emocionalmente de forma creíble
-- Integrar facciones de FR con sus filosofías reales (Arpistas vs Zhentarim vs Enclave Esmeralda, etc.)
-- El dilema debe ser relevante para la narrativa en curso, no un caso aislado
-- Evitar dilemas de trolley problem genéricos — crear situaciones específicas y contextualizadas
-
-TEMAS POSIBLES: sacrificio individual vs bien común, justicia vs misericordia, lealtad vs deber, verdad vs estabilidad, libertad vs seguridad, tradición vs progreso, venganza vs perdón, pragmatismo vs idealismo.
-
-FORMATO DE RESPUESTA (JSON estricto):
-{
-  "title": "nombre del dilema",
-  "theme": "tema moral central",
-  "initial_situation": {"description": "qué encuentran los PJs", "urgency": "low|medium|high|critical", "context": "cómo llegaron aquí"},
-  "involved_parties": [
-    {"name": "nombre/grupo", "role": "su papel en el conflicto", "motivation": "qué quieren y por qué", "moral_standing": "por qué creen tener razón", "emotional_state": "estado emocional actual", "what_they_hide": "qué no dicen"}
-  ],
-  "conflicting_interests": [
-    {"interest": "descripción", "who_benefits": "quién gana", "who_suffers": "quién pierde", "moral_weight": "por qué importa"}
-  ],
-  "incomplete_information": [
-    {"what_pjs_know": "información visible", "what_pjs_dont_know": "información oculta", "how_to_discover": "cómo podrían averiguarlo", "discovery_changes_everything": "cómo cambia el dilema si lo descubren"}
-  ],
-  "possible_decisions": [
-    {"decision": "opción", "immediate_appeal": "por qué parece buena idea", "hidden_cost": "el precio que no ven", "alignment_tendency": "qué alineamiento la favorece"}
-  ],
-  "short_term_consequences": [
-    {"decision": "si eligen X", "immediate_result": "qué pasa ahora", "who_reacts": "quién responde", "emotional_fallout": "impacto emocional inmediato"}
-  ],
-  "long_term_consequences": [
-    {"decision": "si eligieron X", "weeks_later": "en semanas", "months_later": "en meses", "permanent_change": "cambio permanente en el mundo"}
-  ],
-  "political_social_impact": [
-    {"decision": "decisión", "political_shift": "cambio político", "social_shift": "cambio social", "faction_reactions": [{"faction": "nombre", "reaction": "respuesta"}]}
-  ],
-  "npc_emotional_impact": [
-    {"npc": "nombre", "if_decision_a": "reacción emocional", "if_decision_b": "reacción alternativa", "relationship_change": "cómo cambia su relación con los PJs"}
-  ],
-  "dm_notes": "Cómo presentar el dilema sin sesgar a los jugadores",
-  "summary": "Resumen de 2-3 frases"
-}`;
-
-    const userPrompt = `REGIÓN: ${region || "Forgotten Realms"}
-TONO: ${tone || "épico"}
-NIVEL DEL GRUPO: ${partyLevel || "5-10"}
-TEMA PREFERIDO: ${dilemmaTheme || "cualquiera"}
-${specificRequest ? `PETICIÓN ESPECÍFICA: ${specificRequest}` : ""}
-
-CONTEXTO DE CAMPAÑA:\n${JSON.stringify(campaignContext || {}, null, 2)}
-
-MEMORIA NARRATIVA:\n${JSON.stringify(narrativeContext || {}, null, 2)}
-
-Genera un dilema moral complejo donde ninguna opción sea claramente correcta.`;
-
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-2.5-pro",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.85,
-        response_mime_type: "application/json",
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Gemini API error:", response.status, errorText);
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-
-    let dilemma;
-    try {
-      dilemma = JSON.parse(content);
-    } catch {
-      dilemma = { raw: content, parse_error: true };
-    }
-
-    return new Response(JSON.stringify({ dilemma }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (error) {
-    console.error("generate-moral-dilemma error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+    const systemPrompt = `Eres un diseñador de dilemas morales complejos para D&D 5e en Forgotten Realms. Ninguna opción es claramente correcta. FORMATO (JSON): {"title":"nombre","theme":"tema","initial_situation":{"description":"desc","urgency":"low|medium|high|critical","context":"contexto"},"involved_parties":[{"name":"nombre","role":"papel","motivation":"motivación","moral_standing":"posición moral","emotional_state":"estado","what_they_hide":"ocultan"}],"conflicting_interests":[{"interest":"interés","who_benefits":"beneficiario","who_suffers":"perjudicado","moral_weight":"peso"}],"incomplete_information":[{"what_pjs_know":"saben","what_pjs_dont_know":"no saben","how_to_discover":"descubrir","discovery_changes_everything":"cambio"}],"possible_decisions":[{"decision":"opción","immediate_appeal":"atractivo","hidden_cost":"coste","alignment_tendency":"alineamiento"}],"short_term_consequences":[{"decision":"si X","immediate_result":"resultado","who_reacts":"reacción","emotional_fallout":"impacto"}],"long_term_consequences":[{"decision":"si X","weeks_later":"semanas","months_later":"meses","permanent_change":"cambio permanente"}],"political_social_impact":[{"decision":"decisión","political_shift":"político","social_shift":"social","faction_reactions":[{"faction":"facción","reaction":"reacción"}]}],"npc_emotional_impact":[{"npc":"nombre","if_decision_a":"reacción A","if_decision_b":"reacción B","relationship_change":"cambio relación"}],"dm_notes":"notas","summary":"resumen"}`;
+    const userPrompt = `REGIÓN: ${region || "FR"}\nTONO: ${tone || "épico"}\nNIVEL: ${partyLevel || "5-10"}\nTEMA: ${dilemmaTheme || "cualquiera"}\n${specificRequest ? `PETICIÓN: ${specificRequest}` : ""}\nCONTEXTO:\n${JSON.stringify(campaignContext || {})}\nMEMORIA:\n${JSON.stringify(narrativeContext || {})}\nGenera un dilema moral complejo.`;
+    const response = await callAIWithFallback([{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], { model: "gemini-2.5-pro", temperature: 0.85, response_mime_type: "application/json" });
+    if (!response) return new Response(JSON.stringify({ error: "Ambos servicios de IA están saturados. Espera unos segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const data = await response.json(); const content = data.choices?.[0]?.message?.content;
+    let dilemma; try { dilemma = JSON.parse(content); } catch { dilemma = { raw: content, parse_error: true }; }
+    return new Response(JSON.stringify({ dilemma }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } catch (error) { console.error("generate-moral-dilemma error:", error); return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
 });
