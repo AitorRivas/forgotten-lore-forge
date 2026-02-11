@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { faerunLocations, getSubregions, getLocations } from "@/data/faerun-locations";
 
 interface Props {
   open: boolean;
@@ -13,10 +14,26 @@ const CreateCampaignDialog = ({ open, onClose, onCreated }: Props) => {
   const [description, setDescription] = useState("");
   const [levelRange, setLevelRange] = useState("1-5");
   const [region, setRegion] = useState("");
+  const [subregion, setSubregion] = useState("");
+  const [location, setLocation] = useState("");
   const [tone, setTone] = useState("épico");
   const [loading, setLoading] = useState(false);
 
   if (!open) return null;
+
+  const subregions = getSubregions(region);
+  const locations = getLocations(region, subregion);
+
+  const handleRegionChange = (newRegion: string) => {
+    setRegion(newRegion);
+    setSubregion("");
+    setLocation("");
+  };
+
+  const handleSubregionChange = (newSubregion: string) => {
+    setSubregion(newSubregion);
+    setLocation("");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +50,7 @@ const CreateCampaignDialog = ({ open, onClose, onCreated }: Props) => {
       name,
       description: description || null,
       level_range: levelRange,
-      region: region || null,
+      region: location || region || null,
       tone,
       user_id: user.id,
     });
@@ -46,6 +63,8 @@ const CreateCampaignDialog = ({ open, onClose, onCreated }: Props) => {
       setDescription("");
       setLevelRange("1-5");
       setRegion("");
+      setSubregion("");
+      setLocation("");
       setTone("épico");
       onCreated();
       onClose();
@@ -117,19 +136,64 @@ const CreateCampaignDialog = ({ open, onClose, onCreated }: Props) => {
                 <option value="horror">Horror</option>
               </select>
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-display text-gold-light mb-1">
-              Región Principal
-            </label>
-            <input
-              type="text"
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
-              placeholder="Ej: Costa de la Espada, Cormyr, Undermountain..."
-              className="w-full bg-secondary border border-border rounded px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors"
-            />
-          </div>
+           </div>
+           <div className="space-y-3">
+             <div>
+               <label className="block text-sm font-display text-gold-light mb-1">
+                 Región Principal
+               </label>
+               <select
+                 value={region}
+                 onChange={(e) => handleRegionChange(e.target.value)}
+                 className="w-full bg-secondary border border-border rounded px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors"
+               >
+                 <option value="">Selecciona una región...</option>
+                 {faerunLocations.map((r) => (
+                   <option key={r.region_mayor} value={r.region_mayor}>
+                     {r.region_mayor}
+                   </option>
+                 ))}
+               </select>
+             </div>
+             {region && (
+               <div>
+                 <label className="block text-sm font-display text-gold-light mb-1">
+                   Subregión
+                 </label>
+                 <select
+                   value={subregion}
+                   onChange={(e) => handleSubregionChange(e.target.value)}
+                   className="w-full bg-secondary border border-border rounded px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors"
+                 >
+                   <option value="">Selecciona una subregión...</option>
+                   {subregions.map((s) => (
+                     <option key={s} value={s}>
+                       {s}
+                     </option>
+                   ))}
+                 </select>
+               </div>
+             )}
+             {subregion && (
+               <div>
+                 <label className="block text-sm font-display text-gold-light mb-1">
+                   Localización
+                 </label>
+                 <select
+                   value={location}
+                   onChange={(e) => setLocation(e.target.value)}
+                   className="w-full bg-secondary border border-border rounded px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors"
+                 >
+                   <option value="">Selecciona una localización...</option>
+                   {locations.map((loc) => (
+                     <option key={loc} value={loc}>
+                       {loc}
+                     </option>
+                   ))}
+                 </select>
+               </div>
+             )}
+           </div>
           <div className="flex gap-3 pt-2">
             <button
               type="button"
