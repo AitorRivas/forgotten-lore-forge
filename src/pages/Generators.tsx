@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import {
-  ArrowLeft, Sparkles, Users, UserPlus, Map, Castle, Swords, Loader2, Clapperboard, ShieldCheck,
+  ArrowLeft, Sparkles, Users, UserPlus, Map, Castle, Swords, Loader2, Clapperboard, ShieldCheck, Gamepad2,
 } from "lucide-react";
 
 interface GeneratorModule {
@@ -72,6 +72,14 @@ const MODULES: GeneratorModule[] = [
      endpoint: "validate-lore",
      placeholder: "Pega aquí el contenido generado (misión, PNJ, campaña) para validar su coherencia con Forgotten Realms y tu campaña",
      description: "Revisa coherencia con el lore, campaña, PNJs y progresión narrativa. Corrige sin alterar intención.",
+   },
+   {
+     id: "structure-gameplay",
+     label: "Gameplay",
+     icon: Gamepad2,
+     endpoint: "structure-gameplay",
+     placeholder: "Pega contenido narrativo (misión, escena, idea) para transformarlo en formato mecánicamente jugable con encuentros, CDs, stats y consecuencias",
+     description: "Transforma narrativa en gameplay: escenas con mecánicas, encuentros con stats, objetivos y consecuencias.",
    },
  ];
 

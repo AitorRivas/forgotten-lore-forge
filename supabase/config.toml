@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.validate-lore]
 verify_jwt = false
+
+[functions.structure-gameplay]
+verify_jwt = false
