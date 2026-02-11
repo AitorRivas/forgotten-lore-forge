@@ -12,6 +12,8 @@ const CreateCampaignDialog = ({ open, onClose, onCreated }: Props) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [levelRange, setLevelRange] = useState("1-5");
+  const [region, setRegion] = useState("");
+  const [tone, setTone] = useState("épico");
   const [loading, setLoading] = useState(false);
 
   if (!open) return null;
@@ -31,6 +33,8 @@ const CreateCampaignDialog = ({ open, onClose, onCreated }: Props) => {
       name,
       description: description || null,
       level_range: levelRange,
+      region: region || null,
+      tone,
       user_id: user.id,
     });
 
@@ -41,6 +45,8 @@ const CreateCampaignDialog = ({ open, onClose, onCreated }: Props) => {
       setName("");
       setDescription("");
       setLevelRange("1-5");
+      setRegion("");
+      setTone("épico");
       onCreated();
       onClose();
     }
@@ -77,20 +83,52 @@ const CreateCampaignDialog = ({ open, onClose, onCreated }: Props) => {
               className="w-full bg-secondary border border-border rounded px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors resize-none"
             />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-display text-gold-light mb-1">
+                Rango de Nivel
+              </label>
+              <select
+                value={levelRange}
+                onChange={(e) => setLevelRange(e.target.value)}
+                className="w-full bg-secondary border border-border rounded px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors"
+              >
+                <option value="1-5">Nivel 1-5 (Tier 1)</option>
+                <option value="5-10">Nivel 5-10 (Tier 2)</option>
+                <option value="11-16">Nivel 11-16 (Tier 3)</option>
+                <option value="17-20">Nivel 17-20 (Tier 4)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-display text-gold-light mb-1">
+                Tono
+              </label>
+              <select
+                value={tone}
+                onChange={(e) => setTone(e.target.value)}
+                className="w-full bg-secondary border border-border rounded px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors"
+              >
+                <option value="épico">Épico</option>
+                <option value="oscuro">Oscuro</option>
+                <option value="misterioso">Misterioso</option>
+                <option value="cómico">Cómico</option>
+                <option value="político">Político</option>
+                <option value="exploración">Exploración</option>
+                <option value="horror">Horror</option>
+              </select>
+            </div>
+          </div>
           <div>
             <label className="block text-sm font-display text-gold-light mb-1">
-              Rango de Nivel
+              Región Principal
             </label>
-            <select
-              value={levelRange}
-              onChange={(e) => setLevelRange(e.target.value)}
+            <input
+              type="text"
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              placeholder="Ej: Costa de la Espada, Cormyr, Undermountain..."
               className="w-full bg-secondary border border-border rounded px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors"
-            >
-              <option value="1-5">Nivel 1-5 (Tier 1)</option>
-              <option value="5-10">Nivel 5-10 (Tier 2)</option>
-              <option value="11-16">Nivel 11-16 (Tier 3)</option>
-              <option value="17-20">Nivel 17-20 (Tier 4)</option>
-            </select>
+            />
           </div>
           <div className="flex gap-3 pt-2">
             <button
