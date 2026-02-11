@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import {
-  ArrowLeft, Sparkles, Users, UserPlus, Map, Castle, Swords, Loader2,
+  ArrowLeft, Sparkles, Users, UserPlus, Map, Castle, Swords, Loader2, Clapperboard,
 } from "lucide-react";
 
 interface GeneratorModule {
@@ -49,15 +49,23 @@ const MODULES: GeneratorModule[] = [
     placeholder: "Ej: 'Estructura completa para una campaña de 3 actos sobre la guerra de dragones'",
     description: "Construye actos, capítulos, misiones detalladas con finales múltiples.",
   },
-  {
-    id: "mission",
-    label: "Misión",
-    icon: Swords,
-    endpoint: "generate-mission",
-    placeholder: "Ej: 'Misión de infiltración en una fortaleza githyanki'",
-    description: "Genera una misión standalone con encuentros, NPCs y consecuencias.",
-  },
-];
+   {
+     id: "mission",
+     label: "Misión",
+     icon: Swords,
+     endpoint: "generate-mission",
+     placeholder: "Ej: 'Misión de infiltración en una fortaleza githyanki'",
+     description: "Genera una misión standalone con encuentros, NPCs y consecuencias.",
+   },
+   {
+     id: "session-script",
+     label: "Guión de Sesión",
+     icon: Clapperboard,
+     endpoint: "generate-session-script",
+     placeholder: "Ej: 'Convierte mi misión en un guión con escenas y decisiones ramificadas' o deja vacío para generar una sesión aleatoria",
+     description: "Convierte contenido en un guión ejecutable con escenas, decisiones, encuentros y cliffhangers.",
+   },
+ ];
 
 const Generators = () => {
   const navigate = useNavigate();
@@ -169,8 +177,8 @@ const Generators = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Module selector */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-8">
+         {/* Module selector */}
+         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-8">
           {MODULES.map((mod) => {
             const Icon = mod.icon;
             const isActive = activeModule === mod.id;
