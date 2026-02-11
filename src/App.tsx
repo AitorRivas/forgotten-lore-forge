@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
 import CampaignView from "./pages/CampaignView";
+import Generators from "./pages/Generators";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ const App = () => (
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/campaign/:id" element={<ProtectedRoute><CampaignView /></ProtectedRoute>} />
+          <Route path="/generators" element={<ProtectedRoute><Generators /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
