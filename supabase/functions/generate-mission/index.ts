@@ -13,9 +13,11 @@ OBJETIVO: Generar contenido jugable, coherente, diverso y estructurado para camp
 
 REGLAS CRÍTICAS:
 - Usa únicamente lore oficial de Forgotten Realms.
-- Mantén coherencia histórica, geográfica y política.
-- Introduce conflictos claros y consecuencias reales.
-- EVITA completamente las regiones, estilos narrativos y arquetipos de villanos ya utilizados por el DM.
+- Mantén coherencia TOTAL con el contexto de campaña proporcionado.
+- Haz referencia a eventos previos, NPCs activos, antagonistas y conflictos abiertos.
+- Las nuevas misiones deben avanzar o complicar los conflictos existentes.
+- Respeta las decisiones del grupo y sus consecuencias.
+- Introduce nuevos elementos que complementen la narrativa sin contradecirla.
 - Cada misión DEBE incluir al menos dos de: intriga social/política, investigación, combate significativo, puzzle/desafío lógico, dilema moral, giro narrativo inesperado.
 
 FORMATO DE RESPUESTA (usa markdown):
@@ -23,28 +25,31 @@ FORMATO DE RESPUESTA (usa markdown):
 ## 🗡️ [Título de la Misión]
 
 ### 📜 Resumen
-[Resumen breve de la misión en 2-3 oraciones]
+[Resumen breve en 2-3 oraciones, conectado con la trama existente]
 
 ### 🪝 Gancho Narrativo
-[Cómo los aventureros se enteran de la misión]
+[Cómo los aventureros se enteran — debe conectar con NPCs o eventos existentes]
 
 ### 📍 Ubicación
 [Lugar específico en Forgotten Realms con descripción atmosférica]
 
 ### 🎭 NPCs Clave
-[Lista de NPCs con nombre, raza, clase/ocupación, motivación y secreto]
+[NPCs nuevos y existentes. Para cada uno: nombre, raza, clase/ocupación, motivación, secreto. Marca con ⭐ los que ya existen en la campaña]
 
 ### ⚔️ Encuentros
 [2-3 encuentros detallados con nivel de dificultad sugerido]
 
 ### 🧩 Elementos Narrativos
-[Qué elementos incluye: intriga, investigación, combate, puzzle, dilema moral, giro]
+[Elementos: intriga, investigación, combate, puzzle, dilema moral, giro]
 
 ### 🏆 Recompensas
 [Tesoro, objetos mágicos, alianzas, información]
 
 ### 🔄 Consecuencias
-[Qué pasa si los jugadores tienen éxito o fracasan]
+[Qué pasa según las decisiones — cómo afecta a conflictos abiertos]
+
+### 🔗 Conexiones con la Campaña
+[Cómo esta misión conecta con eventos previos, avanza conflictos abiertos, y siembra semillas para el futuro]
 
 ### 📝 Notas para el DM
 [Consejos de interpretación, música sugerida, variaciones posibles]`;
@@ -55,15 +60,7 @@ serve(async (req) => {
   }
 
   try {
-    const {
-      campaignName,
-      campaignDescription,
-      levelRange,
-      campaignId,
-      userId,
-      previousMissions,
-      customPrompt,
-    } = await req.json();
+    const { campaignId, userId, customPrompt } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -73,77 +70,107 @@ serve(async (req) => {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY)
       throw new Error("Database not configured");
 
-    // Initialize Supabase client for backend operations
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // Fetch full campaign data
+    const { data: campaign, error: campaignError } = await supabase
+      .from("campaigns")
+      .select("*")
+      .eq("id", campaignId)
+      .single();
+
+    if (campaignError || !campaign) {
+      throw new Error("Campaña no encontrada");
+    }
+
+    // Fetch previous missions
+    const { data: missions } = await supabase
+      .from("missions")
+      .select("title, summary, full_content")
+      .eq("campaign_id", campaignId)
+      .order("created_at", { ascending: false })
+      .limit(8);
+
     // Fetch user context
-    const { data: userContext, error: contextError } = await supabase
+    const { data: userContext } = await supabase
       .from("user_context")
       .select("*")
       .eq("user_id", userId)
       .single();
 
-    if (contextError && contextError.code !== "PGRST116") {
-      console.error("Error fetching user context:", contextError);
+    // Build rich campaign context
+    const ctx = campaign.narrative_context || {};
+    let campaignContext = `\n\n=== CONTEXTO DE CAMPAÑA ACTIVA ===`;
+    campaignContext += `\nCampaña: "${campaign.name}"`;
+    campaignContext += `\nDescripción: ${campaign.description || "Sin descripción"}`;
+    campaignContext += `\nRegión principal: ${campaign.region || "Sin definir"}`;
+    campaignContext += `\nTono: ${campaign.tone || "épico"}`;
+    campaignContext += `\nNivel: ${campaign.level_range}`;
+    campaignContext += `\nActo actual: ${campaign.current_act || 1}`;
+
+    if (ctx.summary) {
+      campaignContext += `\n\nRESUMEN GENERAL:\n${ctx.summary}`;
     }
 
-    // Fetch campaign metadata
-    const { data: campaign, error: campaignError } = await supabase
-      .from("campaigns")
-      .select("campaign_metadata")
-      .eq("id", campaignId)
-      .single();
-
-    if (campaignError) {
-      console.error("Error fetching campaign metadata:", campaignError);
+    if (ctx.chapters?.length > 0) {
+      campaignContext += `\n\nCAPÍTULOS EXISTENTES:\n${ctx.chapters.map((c: string, i: number) => `${i + 1}. ${c}`).join("\n")}`;
     }
 
-    // Build context awareness prompt
-    let contextPrompt = "";
-
-    if (userContext) {
-      const regionsUsed = (userContext.regions_used || []).slice(-5); // Last 5 regions
-      const stylesUsed = (userContext.narrative_styles || []).slice(-3); // Last 3 styles
-      const recentThemes = (userContext.recent_themes || []).slice(-5); // Last 5 themes
-
-      if (regionsUsed.length > 0) {
-        contextPrompt += `\n\nREGIONES YA UTILIZADAS (EVITA):\n${regionsUsed.join(", ")}`;
-      }
-      if (stylesUsed.length > 0) {
-        contextPrompt += `\n\nESTILOS NARRATIVOS RECIENTES (VARÍA):\n${stylesUsed.join(", ")}`;
-      }
-      if (recentThemes.length > 0) {
-        contextPrompt += `\n\nTEMAS RECIENTES (BUSCA VARIEDAD):\n${recentThemes.join(", ")}`;
-      }
+    if (ctx.important_events?.length > 0) {
+      campaignContext += `\n\nEVENTOS IMPORTANTES:\n${ctx.important_events.map((e: string) => `- ${e}`).join("\n")}`;
     }
 
-    if (campaign?.campaign_metadata) {
-      const metadata = campaign.campaign_metadata;
-      if (metadata.regions?.length > 0) {
-        contextPrompt += `\n\nREGIONES EN ESTA CAMPAÑA:\n${metadata.regions.join(", ")}`;
-      }
-      if (metadata.villain_archetypes?.length > 0) {
-        contextPrompt += `\n\nARQUETIPOS DE VILLANOS YA USADOS EN ESTA CAMPAÑA:\n${metadata.villain_archetypes.join(", ")}`;
-      }
+    if (ctx.known_antagonists?.length > 0) {
+      campaignContext += `\n\nANTAGONISTAS CONOCIDOS:\n${ctx.known_antagonists.map((a: string) => `- ${a}`).join("\n")}`;
     }
 
-    let userPrompt = `Genera una misión para la campaña "${campaignName}".`;
-    if (campaignDescription)
-      userPrompt += `\nDescripción: ${campaignDescription}`;
-    if (levelRange) userPrompt += `\nNivel: ${levelRange}`;
+    if (ctx.active_npcs?.length > 0) {
+      campaignContext += `\n\nPNJs ACTIVOS (deben aparecer o ser mencionados si es relevante):\n${ctx.active_npcs.map((n: string) => `- ${n}`).join("\n")}`;
+    }
 
-    if (previousMissions && previousMissions.length > 0) {
-      userPrompt += `\n\nMISIONES ANTERIORES (mantén continuidad sin repetir estructuras):\n`;
-      previousMissions.forEach((m: string, i: number) => {
-        userPrompt += `${i + 1}. ${m}\n`;
+    if (ctx.party_decisions?.length > 0) {
+      campaignContext += `\n\nDECISIONES DEL GRUPO (respétalas):\n${ctx.party_decisions.map((d: string) => `- ${d}`).join("\n")}`;
+    }
+
+    if (ctx.open_conflicts?.length > 0) {
+      campaignContext += `\n\nCONFLICTOS ABIERTOS (avánzalos o complícalos):\n${ctx.open_conflicts.map((c: string) => `- ${c}`).join("\n")}`;
+    }
+
+    if (ctx.narrative_memory?.length > 0) {
+      campaignContext += `\n\nMEMORIA NARRATIVA PREVIA:\n${ctx.narrative_memory.slice(-5).map((m: string) => `- ${m}`).join("\n")}`;
+    }
+
+    if (ctx.plot_hooks_pending?.length > 0) {
+      campaignContext += `\n\nGANCHOS PENDIENTES (considera usar alguno):\n${ctx.plot_hooks_pending.map((h: string) => `- ${h}`).join("\n")}`;
+    }
+
+    if (ctx.regions_explored?.length > 0) {
+      campaignContext += `\n\nREGIONES YA EXPLORADAS:\n${ctx.regions_explored.join(", ")}`;
+    }
+
+    // Previous missions
+    if (missions && missions.length > 0) {
+      campaignContext += `\n\nMISIONES ANTERIORES (mantén continuidad, no repitas estructuras):\n`;
+      missions.forEach((m: any, i: number) => {
+        campaignContext += `${i + 1}. ${m.title}${m.summary ? ` — ${m.summary}` : ""}\n`;
       });
     }
 
-    if (customPrompt) {
-      userPrompt += `\n\nINSTRUCCIONES DEL DM:\n${customPrompt}`;
+    // User-level variety context
+    if (userContext) {
+      const recentStyles = (userContext.narrative_styles || []).slice(-3);
+      if (recentStyles.length > 0) {
+        campaignContext += `\n\nESTILOS NARRATIVOS RECIENTES DEL DM (varía):\n${recentStyles.join(", ")}`;
+      }
     }
 
-    userPrompt += contextPrompt;
+    campaignContext += `\n=== FIN CONTEXTO ===`;
+
+    let userPrompt = `Genera la siguiente misión para esta campaña.`;
+    if (customPrompt) {
+      userPrompt += `\n\nINSTRUCCIONES ADICIONALES DEL DM:\n${customPrompt}`;
+    }
+    userPrompt += campaignContext;
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -167,34 +194,21 @@ serve(async (req) => {
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({
-            error: "Demasiadas solicitudes. Espera un momento antes de intentar de nuevo.",
-          }),
-          {
-            status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
+          JSON.stringify({ error: "Demasiadas solicitudes. Espera un momento." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({
-            error: "Créditos agotados. Añade más créditos en tu workspace.",
-          }),
-          {
-            status: 402,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
+          JSON.stringify({ error: "Créditos agotados." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       const t = await response.text();
       console.error("AI gateway error:", response.status, t);
       return new Response(
         JSON.stringify({ error: "Error del servicio de IA" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -204,13 +218,8 @@ serve(async (req) => {
   } catch (e) {
     console.error("generate-mission error:", e);
     return new Response(
-      JSON.stringify({
-        error: e instanceof Error ? e.message : "Error desconocido",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: e instanceof Error ? e.message : "Error desconocido" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

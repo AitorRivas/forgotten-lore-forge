@@ -16,38 +16,47 @@ export type Database = {
     Tables: {
       campaigns: {
         Row: {
-          campaign_metadata: Json | null
           created_at: string
+          current_act: number | null
           description: string | null
           id: string
           level_range: string | null
           name: string
+          narrative_context: Json | null
+          region: string | null
           setting: string | null
           status: string | null
+          tone: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
-          campaign_metadata?: Json | null
           created_at?: string
+          current_act?: number | null
           description?: string | null
           id?: string
           level_range?: string | null
           name: string
+          narrative_context?: Json | null
+          region?: string | null
           setting?: string | null
           status?: string | null
+          tone?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
-          campaign_metadata?: Json | null
           created_at?: string
+          current_act?: number | null
           description?: string | null
           id?: string
           level_range?: string | null
           name?: string
+          narrative_context?: Json | null
+          region?: string | null
           setting?: string | null
           status?: string | null
+          tone?: string | null
           updated_at?: string
           user_id?: string
         }

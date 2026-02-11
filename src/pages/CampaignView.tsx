@@ -3,14 +3,19 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { ArrowLeft, Sparkles, Scroll } from "lucide-react";
+import { ArrowLeft, Sparkles, Scroll, BookOpen } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import CampaignContextPanel from "@/components/CampaignContextPanel";
 
 interface Campaign {
   id: string;
   name: string;
   description: string | null;
   level_range: string;
+  region: string | null;
+  tone: string | null;
+  current_act: number | null;
+  narrative_context: any;
 }
 
 interface Mission {
@@ -32,6 +37,7 @@ const CampaignView = () => {
   const [customPrompt, setCustomPrompt] = useState("");
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [userId, setUserId] = useState<string>("");
+  const [showContext, setShowContext] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -56,7 +62,7 @@ const CampaignView = () => {
       toast.error("Campaña no encontrada");
       navigate("/dashboard");
     } else {
-      setCampaign(data);
+      setCampaign(data as Campaign);
     }
   };
 
@@ -81,8 +87,6 @@ const CampaignView = () => {
     setStreamContent("");
     setSelectedMission(null);
 
-    const previousMissions = missions.slice(0, 5).map((m) => m.title);
-
     try {
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-mission`,
@@ -93,12 +97,8 @@ const CampaignView = () => {
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
-            campaignName: campaign.name,
-            campaignDescription: campaign.description,
-            levelRange: campaign.level_range,
             campaignId: campaign.id,
-            userId: userId,
-            previousMissions,
+            userId,
             customPrompt: customPrompt || undefined,
           }),
         }
@@ -155,25 +155,6 @@ const CampaignView = () => {
       const titleMatch = fullContent.match(/##\s*🗡️\s*(.+)/);
       const title = titleMatch ? titleMatch[1].trim() : "Misión sin título";
 
-      // Extract context from mission for learning
-      const locationMatch = fullContent.match(/###\s*📍\s*Ubicación\s*\n(.+?)(?=\n###|$)/s);
-      const location = locationMatch ? locationMatch[1].trim().split("\n")[0] : "";
-      
-      const elementMatch = fullContent.match(/###\s*🧩\s*Elementos\s*\n(.+?)(?=\n###|$)/s);
-      const narrativeType = elementMatch 
-        ? (elementMatch[1].includes("intriga") ? "intriga" : 
-           elementMatch[1].includes("investigación") ? "investigación" :
-           elementMatch[1].includes("combate") ? "combate" : "aventura")
-        : "aventura";
-
-      const npcMatch = fullContent.match(/###\s*🎭\s*NPCs\s*\n(.+?)(?=\n###|$)/s);
-      const mainNpc = npcMatch ? npcMatch[1].trim().split("\n")[0] : "";
-      
-      const mainTheme = title.toLowerCase().includes("dragón") ? "dragones" :
-                       title.toLowerCase().includes("undead") || title.toLowerCase().includes("no-muerto") ? "no-muertos" :
-                       title.toLowerCase().includes("magia oscura") || title.toLowerCase().includes("hechicería") ? "magia_oscura" :
-                       "aventura";
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No autenticado");
 
@@ -188,7 +169,7 @@ const CampaignView = () => {
       if (error) {
         toast.error("Error guardando misión");
       } else {
-        // Update user context for next generation
+        // Update campaign context via AI extraction
         try {
           await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-context`,
@@ -201,21 +182,19 @@ const CampaignView = () => {
               body: JSON.stringify({
                 campaignId: campaign.id,
                 userId: user.id,
+                missionTitle: title,
                 missionContent: fullContent,
-                region: location,
-                narrativeStyle: narrativeType,
-                mainTheme: mainTheme,
-                mainVillain: mainNpc,
               }),
             }
           );
         } catch (contextError) {
           console.error("Error updating context:", contextError);
         }
-        
+
         toast.success("¡Misión generada y guardada!");
         setCustomPrompt("");
         fetchMissions();
+        fetchCampaign(); // Refresh campaign context
       }
     } catch (e: any) {
       toast.error(e.message || "Error generando misión");
@@ -234,30 +213,58 @@ const CampaignView = () => {
     );
   }
 
+  const ctxData = campaign.narrative_context || {};
+  const contextCount = [
+    ctxData.active_npcs?.length || 0,
+    ctxData.known_antagonists?.length || 0,
+    ctxData.open_conflicts?.length || 0,
+    ctxData.important_events?.length || 0,
+  ].reduce((a: number, b: number) => a + b, 0);
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center gap-4">
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h1 className="font-display text-2xl text-gold text-glow">
-              {campaign.name}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Nivel {campaign.level_range} · {missions.length} misiones
-            </p>
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="font-display text-2xl text-gold text-glow">
+                {campaign.name}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Nivel {campaign.level_range}
+                {campaign.region && ` · ${campaign.region}`}
+                {campaign.tone && ` · ${campaign.tone}`}
+                {` · Acto ${campaign.current_act || 1}`}
+                {` · ${missions.length} misiones`}
+              </p>
+            </div>
           </div>
+          <button
+            onClick={() => setShowContext(!showContext)}
+            className={`flex items-center gap-2 text-sm font-display px-3 py-1.5 rounded transition-colors ${
+              showContext ? "bg-primary text-primary-foreground" : "text-gold hover:text-gold-light border border-border"
+            }`}
+          >
+            <BookOpen size={16} />
+            Contexto
+            {contextCount > 0 && (
+              <span className="bg-secondary text-muted-foreground text-xs px-1.5 py-0.5 rounded">
+                {contextCount}
+              </span>
+            )}
+          </button>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Sidebar - Missions List */}
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        <div className={`grid gap-6 ${showContext ? "grid-cols-1 lg:grid-cols-4" : "grid-cols-1 lg:grid-cols-3"}`}>
+          {/* Sidebar - Generator + Missions */}
           <div className="lg:col-span-1 space-y-4">
             <div className="ornate-border rounded-lg p-5 parchment-bg">
               <h3 className="font-display text-lg text-gold mb-4">
@@ -266,7 +273,7 @@ const CampaignView = () => {
               <textarea
                 value={customPrompt}
                 onChange={(e) => setCustomPrompt(e.target.value)}
-                placeholder="Instrucciones adicionales (opcional)... Ej: 'Incluye un dragón ancestral' o 'Ambientada en Neverwinter'"
+                placeholder="Instrucciones adicionales (opcional)... Ej: 'Avanza el conflicto con el dragón' o 'Ambientada en Neverwinter'"
                 rows={3}
                 className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold transition-colors resize-none mb-3"
               />
@@ -314,7 +321,7 @@ const CampaignView = () => {
           </div>
 
           {/* Main Content */}
-          <div className="lg:col-span-2">
+          <div className={showContext ? "lg:col-span-2" : "lg:col-span-2"}>
             {generating && streamContent ? (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -346,12 +353,26 @@ const CampaignView = () => {
                 </h3>
                 <p className="text-muted-foreground">
                   {missions.length === 0
-                    ? "Usa el generador para crear contenido narrativo para tu campaña"
+                    ? "Configura el contexto de campaña y genera contenido narrativo"
                     : "Elige una misión de la lista o genera una nueva"}
                 </p>
               </div>
             )}
           </div>
+
+          {/* Context Panel */}
+          {showContext && (
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="lg:col-span-1 max-h-[calc(100vh-200px)] overflow-y-auto"
+            >
+              <CampaignContextPanel
+                campaign={campaign}
+                onUpdated={fetchCampaign}
+              />
+            </motion.div>
+          )}
         </div>
       </main>
     </div>
