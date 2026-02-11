@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Sparkles, Loader2 } from "lucide-react";
 import { faerunLocations, getSubregions, getLocations } from "@/data/faerun-locations";
 
 interface Props {
@@ -18,6 +19,32 @@ const CreateCampaignDialog = ({ open, onClose, onCreated }: Props) => {
   const [location, setLocation] = useState("");
   const [tone, setTone] = useState("épico");
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+
+  const handleAutoGenerate = async () => {
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-campaign-fields");
+      if (error) throw error;
+      if (data.name) setName(data.name);
+      if (data.description) setDescription(data.description);
+      if (data.levelRange) setLevelRange(data.levelRange);
+      if (data.tone) setTone(data.tone);
+      if (data.region) {
+        const match = faerunLocations.find(r => r.region_mayor === data.region);
+        if (match) {
+          setRegion(data.region);
+          setSubregion("");
+          setLocation("");
+        }
+      }
+      toast.success("¡Campaña generada! Revisa y ajusta los campos.");
+    } catch (e) {
+      console.error(e);
+      toast.error("Error generando campaña automática");
+    }
+    setGenerating(false);
+  };
 
   if (!open) return null;
 
@@ -75,7 +102,18 @@ const CreateCampaignDialog = ({ open, onClose, onCreated }: Props) => {
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="ornate-border rounded-lg p-6 parchment-bg w-full max-w-lg">
-        <h2 className="font-display text-2xl text-gold mb-6">Nueva Campaña</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="font-display text-2xl text-gold">Nueva Campaña</h2>
+          <button
+            type="button"
+            onClick={handleAutoGenerate}
+            disabled={generating || loading}
+            className="flex items-center gap-2 bg-primary/20 border border-primary/40 text-gold font-display text-sm px-4 py-2 rounded hover:bg-primary/30 transition-colors disabled:opacity-50"
+          >
+            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {generating ? "Generando..." : "Auto-generar"}
+          </button>
+        </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-display text-gold-light mb-1">
