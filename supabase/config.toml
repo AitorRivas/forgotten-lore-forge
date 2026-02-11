@@ -1,0 +1,4 @@
+project_id = "eckojfeyytdnqjyqjtev"
+
+[functions.generate-mission]
+verify_jwt = false
