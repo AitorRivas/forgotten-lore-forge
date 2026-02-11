@@ -371,40 +371,52 @@ serve(async (req) => {
     userPrompt += campaignContext;
     userPrompt += diversityAnalysis;
 
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${GEMINI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gemini-2.5-pro",
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: userPrompt },
-          ],
-          stream: true,
-        }),
-      }
-    );
+    // Retry with exponential backoff for rate limits
+    let response: Response | null = null;
+    const maxRetries = 3;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      response = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${GEMINI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gemini-2.5-pro",
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              { role: "user", content: userPrompt },
+            ],
+            stream: true,
+          }),
+        }
+      );
 
-    if (!response.ok) {
-      if (response.status === 429) {
+      if (response.status !== 429 || attempt === maxRetries) break;
+      
+      const waitMs = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+      console.log(`Rate limited (attempt ${attempt + 1}/${maxRetries}), waiting ${waitMs}ms...`);
+      await new Promise(r => setTimeout(r, waitMs));
+    }
+
+    if (!response || !response.ok) {
+      const status = response?.status || 500;
+      if (status === 429) {
         return new Response(
-          JSON.stringify({ error: "Demasiadas solicitudes. Espera un momento." }),
+          JSON.stringify({ error: "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
+      if (status === 402) {
         return new Response(
           JSON.stringify({ error: "Créditos agotados." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
+      const t = response ? await response.text() : "No response";
+      console.error("AI gateway error:", status, t);
       return new Response(
         JSON.stringify({ error: "Error del servicio de IA" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
