@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.generate-social-event]
 verify_jwt = false
+
+[functions.generate-puzzle]
+verify_jwt = false
