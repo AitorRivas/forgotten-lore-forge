@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.update-context]
 verify_jwt = false
+
+[functions.analyze-campaign]
+verify_jwt = false
