@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import {
-  ArrowLeft, Sparkles, Users, UserPlus, Map, Castle, Swords, Loader2, Clapperboard,
+  ArrowLeft, Sparkles, Users, UserPlus, Map, Castle, Swords, Loader2, Clapperboard, ShieldCheck,
 } from "lucide-react";
 
 interface GeneratorModule {
@@ -64,6 +64,14 @@ const MODULES: GeneratorModule[] = [
      endpoint: "generate-session-script",
      placeholder: "Ej: 'Convierte mi misión en un guión con escenas y decisiones ramificadas' o deja vacío para generar una sesión aleatoria",
      description: "Convierte contenido en un guión ejecutable con escenas, decisiones, encuentros y cliffhangers.",
+   },
+   {
+     id: "validate-lore",
+     label: "Validar Lore",
+     icon: ShieldCheck,
+     endpoint: "validate-lore",
+     placeholder: "Pega aquí el contenido generado (misión, PNJ, campaña) para validar su coherencia con Forgotten Realms y tu campaña",
+     description: "Revisa coherencia con el lore, campaña, PNJs y progresión narrativa. Corrige sin alterar intención.",
    },
  ];
 
