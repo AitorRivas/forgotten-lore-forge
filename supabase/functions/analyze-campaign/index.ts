@@ -132,10 +132,25 @@ serve(async (req) => {
 
     const aiData = await aiResponse.json();
     const rawContent = aiData.choices?.[0]?.message?.content || "{}";
-    const cleaned = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    console.log("Raw AI content (first 500 chars):", rawContent.substring(0, 500));
+    // Strip markdown fences and any leading/trailing non-JSON text
+    let cleaned = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    // Try to extract JSON object if surrounded by other text
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) cleaned = jsonMatch[0];
 
     let analysis: any;
-    try { analysis = JSON.parse(cleaned); } catch { throw new Error("Error procesando el análisis"); }
+    try { analysis = JSON.parse(cleaned); } catch (parseErr) {
+      console.error("JSON parse failed. Cleaned content (first 1000 chars):", cleaned.substring(0, 1000));
+      // Return a minimal valid analysis instead of crashing
+      analysis = {
+        active_conflicts: [], growing_threats: [], key_relationships: [],
+        unresolved_clues: [], pending_consequences: [], political_tensions: [],
+        secrets: { revealed: [], hidden: [] },
+        narrative_momentum: { dominant_theme: "Sin datos suficientes", emotional_arc: "Por determinar", recommended_next_beat: "Continuar explorando", pacing_suggestion: "Normal" },
+        dm_summary: "No se pudo analizar completamente la campaña. Intenta de nuevo."
+      };
+    }
 
     return new Response(JSON.stringify({ success: true, analysis }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
