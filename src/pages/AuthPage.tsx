@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,18 +18,56 @@ const AuthPage = () => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        // Login by nickname: look up email first
+        const { data: emailData, error: lookupError } = await supabase.rpc(
+          "get_email_by_nickname",
+          { p_nickname: nickname }
+        );
+        if (lookupError || !emailData) {
+          throw new Error("Aventurero no encontrado. Verifica tu nick.");
+        }
+        const { error } = await supabase.auth.signInWithPassword({
+          email: emailData as string,
+          password,
+        });
         if (error) throw error;
         toast.success("¡Bienvenido de vuelta, Dungeon Master!");
         navigate("/dashboard");
       } else {
-        const { error } = await supabase.auth.signUp({
+        // Register: email + password + nickname
+        if (!nickname.trim()) {
+          throw new Error("El nick es obligatorio");
+        }
+        // Check nickname availability
+        const { data: existing } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("nickname", nickname.trim())
+          .maybeSingle();
+        if (existing) {
+          throw new Error("Ese nick ya está en uso. Elige otro.");
+        }
+
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: window.location.origin },
         });
-        if (error) throw error;
-        toast.success("Revisa tu correo para confirmar tu cuenta.");
+        if (signUpError) throw signUpError;
+
+        // Create profile with nickname
+        if (signUpData.user) {
+          const { error: profileError } = await supabase.from("profiles").insert({
+            user_id: signUpData.user.id,
+            nickname: nickname.trim(),
+          });
+          if (profileError) {
+            throw new Error("Error creando perfil: " + profileError.message);
+          }
+        }
+
+        toast.success("¡Cuenta creada! Bienvenido, " + nickname.trim());
+        navigate("/dashboard");
       }
     } catch (error: any) {
       toast.error(error.message);
@@ -56,16 +95,31 @@ const AuthPage = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-display text-gold-light mb-1.5">
-                Correo Electrónico
+                Nick de Aventurero
               </label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
                 className="w-full bg-secondary border border-border rounded px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors"
                 required
+                placeholder={isLogin ? "Tu nick" : "Elige tu nick"}
               />
             </div>
+            {!isLogin && (
+              <div>
+                <label className="block text-sm font-display text-gold-light mb-1.5">
+                  Correo Electrónico
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-secondary border border-border rounded px-4 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors"
+                  required
+                />
+              </div>
+            )}
             <div>
               <label className="block text-sm font-display text-gold-light mb-1.5">
                 Contraseña

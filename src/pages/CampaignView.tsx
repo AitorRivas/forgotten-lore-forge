@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { ArrowLeft, Sparkles, Scroll, BookOpen, Compass } from "lucide-react";
+import { ArrowLeft, Sparkles, Scroll, BookOpen, Compass, Pencil, Eye, Save, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import CampaignContextPanel from "@/components/CampaignContextPanel";
 import CampaignAnalysisPanel, { type CampaignAnalysis } from "@/components/CampaignAnalysisPanel";
@@ -42,6 +42,9 @@ const CampaignView = () => {
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysis, setAnalysis] = useState<CampaignAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [editingMission, setEditingMission] = useState(false);
+  const [editedMissionContent, setEditedMissionContent] = useState("");
+  const [savingMission, setSavingMission] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -385,9 +388,54 @@ const CampaignView = () => {
                 animate={{ opacity: 1, x: 0 }}
                 className="ornate-border rounded-lg p-6 parchment-bg"
               >
-                <div className="prose-fantasy">
-                  <ReactMarkdown>{selectedMission.full_content}</ReactMarkdown>
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setEditingMission(false)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-display transition-colors ${!editingMission ? "bg-gold/20 text-gold border border-gold/40" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      <Eye size={13} /> Vista
+                    </button>
+                    <button
+                      onClick={() => { setEditingMission(true); setEditedMissionContent(selectedMission.full_content || ""); }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-display transition-colors ${editingMission ? "bg-gold/20 text-gold border border-gold/40" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      <Pencil size={13} /> Editar
+                    </button>
+                  </div>
+                  {editingMission && (
+                    <button
+                      onClick={async () => {
+                        setSavingMission(true);
+                        const { error } = await supabase.from("missions").update({ full_content: editedMissionContent }).eq("id", selectedMission.id);
+                        if (error) { toast.error("Error guardando"); }
+                        else {
+                          toast.success("Misión actualizada — será canon para futuras generaciones");
+                          setSelectedMission({ ...selectedMission, full_content: editedMissionContent });
+                          setMissions(prev => prev.map(m => m.id === selectedMission.id ? { ...m, full_content: editedMissionContent } : m));
+                          setEditingMission(false);
+                        }
+                        setSavingMission(false);
+                      }}
+                      disabled={savingMission}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded text-xs text-foreground hover:border-gold/50 transition-colors disabled:opacity-50"
+                    >
+                      {savingMission ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                      {savingMission ? "Guardando..." : "Guardar Cambios"}
+                    </button>
+                  )}
                 </div>
+                {editingMission ? (
+                  <textarea
+                    value={editedMissionContent}
+                    onChange={(e) => setEditedMissionContent(e.target.value)}
+                    className="w-full min-h-[500px] bg-secondary/50 border border-border rounded p-4 text-sm text-foreground font-mono leading-relaxed focus:outline-none focus:border-gold/50 transition-colors resize-y"
+                  />
+                ) : (
+                  <div className="prose-fantasy">
+                    <ReactMarkdown>{selectedMission.full_content}</ReactMarkdown>
+                  </div>
+                )}
               </motion.div>
             ) : (
               <div className="ornate-border rounded-lg p-12 parchment-bg text-center">

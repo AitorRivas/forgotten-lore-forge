@@ -16,42 +16,46 @@ async function callAIWithFallback(messages: any[], options: { model?: string; st
   if (options.temperature !== undefined) body.temperature = options.temperature;
   if (options.response_mime_type) body.response_mime_type = options.response_mime_type;
 
-  // Try Gemini first
+  // 1) Try Gemini direct
   if (GEMINI_API_KEY) {
-    const resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (resp.ok) return resp;
-    if (resp.status !== 429) {
-      const t = await resp.text();
-      console.error("Gemini error:", resp.status, t);
-      // Fall through to Lovable AI
-    } else {
-      console.log("Gemini rate limited, falling back to Lovable AI...");
-    }
+    try {
+      const resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (resp.ok) return resp;
+      if (resp.status === 429) console.log("Gemini rate limited, trying Lovable AI (Google)...");
+      else console.error("Gemini error:", resp.status, await resp.text());
+    } catch (e) { console.error("Gemini fetch error:", e); }
   }
 
-  // Fallback to Lovable AI
+  // 2) Fallback: Lovable AI with Google model
   if (LOVABLE_API_KEY) {
-    const lovableBody = { ...body, model: lovableModel };
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify(lovableBody),
-    });
-    if (resp.ok) return resp;
-    if (resp.status === 429) {
-      console.error("Both Gemini and Lovable AI rate limited");
-      return null; // Both failed
-    }
-    if (resp.status === 402) {
-      console.error("Lovable AI: payment required");
-      return null;
-    }
-    const t = await resp.text();
-    console.error("Lovable AI error:", resp.status, t);
+    try {
+      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ ...body, model: lovableModel }),
+      });
+      if (resp.ok) return resp;
+      if (resp.status === 429 || resp.status === 402) console.log("Lovable AI (Google) unavailable, trying ChatGPT...");
+      else console.error("Lovable AI (Google) error:", resp.status, await resp.text());
+    } catch (e) { console.error("Lovable AI fetch error:", e); }
+  }
+
+  // 3) Final fallback: Lovable AI with OpenAI ChatGPT model
+  if (LOVABLE_API_KEY) {
+    const chatgptModel = geminiModel.includes("flash") ? "openai/gpt-5-mini" : "openai/gpt-5";
+    try {
+      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ ...body, model: chatgptModel }),
+      });
+      if (resp.ok) return resp;
+      console.error("ChatGPT fallback error:", resp.status, await resp.text());
+    } catch (e) { console.error("ChatGPT fetch error:", e); }
   }
 
   return null;
@@ -59,7 +63,7 @@ async function callAIWithFallback(messages: any[], options: { model?: string; st
 
 const SYSTEM_PROMPT = `Eres un experto creador de Personajes No Jugadores (PNJs/NPCs) para Dungeons & Dragons 5e en Forgotten Realms.
 
-Genera PNJs profundos, complejos, con motivaciones ocultas y utilidad narrativa real para el DM.
+Genera PNJs profundos, complejos, con motivaciones ocultas, utilidad narrativa real Y UNA FICHA DE COMBATE COMPLETA para el DM.
 
 FORMATO DE RESPUESTA (usa markdown):
 
@@ -69,9 +73,59 @@ FORMATO DE RESPUESTA (usa markdown):
 - **Raza:** [raza]
 - **Género:** [género]
 - **Edad:** [edad aproximada]
+- **Clase/Tipo:** [clase o tipo de criatura, ej: Guerrero 5, Hechicero 3/Pícaro 2, Plebeyo, etc.]
 - **Rol:** [ocupación/función en la historia]
 - **Alineamiento:** [alineamiento real, puede diferir del aparente]
 - **Alineamiento aparente:** [lo que parece ser]
+- **Nivel de Desafío:** [CR estimado]
+
+### ⚔️ Ficha de Combate
+| Atributo | Valor | Mod |
+|----------|-------|-----|
+| FUE | [valor] | [mod] |
+| DES | [valor] | [mod] |
+| CON | [valor] | [mod] |
+| INT | [valor] | [mod] |
+| SAB | [valor] | [mod] |
+| CAR | [valor] | [mod] |
+
+- **Puntos de Golpe:** [PG] ([dados de golpe, ej: 8d8+16])
+- **Clase de Armadura:** [CA] ([tipo de armadura])
+- **Velocidad:** [velocidad] pies
+- **Bonificador de Competencia:** +[bonus]
+- **Tiradas de Salvación:** [salvaciones con competencia]
+- **Habilidades:** [habilidades con competencia y bonus, ej: Percepción +5, Engaño +7]
+- **Sentidos:** [visión en la oscuridad, percepción pasiva, etc.]
+- **Idiomas:** [idiomas que habla]
+- **Resistencias/Inmunidades:** [si aplica]
+- **Vulnerabilidades:** [si aplica]
+
+### 🗡️ Acciones
+[Lista de acciones con tirada de ataque y daño, ej:]
+- **Espada larga.** Ataque con arma cuerpo a cuerpo: +[bonus] al ataque, alcance 5 pies, un objetivo. Impacto: [daño] ([dados]+[mod]) daño cortante.
+- **[Hechizo/Habilidad especial].** [Descripción mecánica completa]
+
+### 🔄 Reacciones
+- [Reacciones disponibles, ej: Parada, Contraataque, etc. con mecánica]
+
+### 🌟 Rasgos Especiales
+- [Rasgos de clase, raciales o únicos con mecánica, ej: Ataque Furtivo 3d6, Metamagia, etc.]
+
+### 📜 Hechizos (si aplica)
+- **Habilidad de lanzamiento:** [atributo], CD de salvación [CD], +[bonus] al ataque con conjuro
+- **Trucos:** [lista]
+- **Nivel 1 ([X] espacios):** [lista]
+- **Nivel 2 ([X] espacios):** [lista]
+- [etc.]
+
+### 🏰 Guarida (si aplica)
+- **Ubicación:** [dónde está su guarida]
+- **Acciones de guarida:** [acciones especiales en su guarida, con CD y efectos]
+- **Efectos regionales:** [efectos que su presencia causa en la zona]
+
+### 🎒 Equipo y Tesoro
+- [Objetos que lleva, incluidos objetos mágicos si tiene]
+- [Tesoro/botín si es derrotado]
 
 ### 👁️ Apariencia
 [Descripción física detallada: rasgos distintivos, vestimenta, manías físicas, primera impresión]
@@ -94,22 +148,22 @@ FORMATO DE RESPUESTA (usa markdown):
 3. [Secreto devastador — cambiaría todo si se revela]
 
 ### 🏛️ Afiliaciones
-[Facciones, gremios, organizaciones a las que pertenece o sirvió. Incluye facciones oficiales de FR si aplica]
+[Facciones, gremios, organizaciones a las que pertenece o sirvió]
 
 ### 💰 Recursos
-[Qué tiene a su disposición: dinero, contactos, información, objetos, favores, ejército, etc.]
+[Qué tiene a su disposición: dinero, contactos, información, objetos, favores]
 
 ### 🗡️ Posibles Traiciones
-[En qué circunstancias traicionaría a los aventureros o a sus aliados. Qué lo haría cambiar de bando]
+[En qué circunstancias traicionaría a los aventureros o a sus aliados]
 
 ### 📈 Evolución Narrativa
-[Cómo puede cambiar este PNJ a lo largo de la campaña — arcos posibles de redención, corrupción, o revelación]
+[Cómo puede cambiar este PNJ a lo largo de la campaña]
 
 ### 🪝 Ganchos de Misión
-[3-4 misiones o situaciones que este PNJ puede detonar para los aventureros]
+[3-4 misiones o situaciones que este PNJ puede detonar]
 
 ### 💡 Notas para el DM
-[Consejos para interpretarlo: voz, gestos, cómo reacciona a diferentes tipos de jugadores]`;
+[Consejos para interpretarlo: voz, gestos, cómo reacciona. Tácticas de combate preferidas.]`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
