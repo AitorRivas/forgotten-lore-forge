@@ -80,13 +80,16 @@ const Index = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border px-6 py-8 text-center">
+      <footer className="border-t border-border px-6 py-8 text-center space-y-2">
         <div className="flex items-center justify-center gap-2 text-muted-foreground">
           <Swords size={16} className="text-gold" />
           <span className="font-display text-sm">
             Crónicas de Faerûn · D&D 5e · Forgotten Realms
           </span>
         </div>
+        <p className="text-muted-foreground/50 text-xs">
+          © Creado por diFFFerent
+        </p>
       </footer>
     </div>
   );
