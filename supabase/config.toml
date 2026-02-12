@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.update-user-nickname]
 verify_jwt = false
+
+[functions.send-confirmation-email]
+verify_jwt = false
