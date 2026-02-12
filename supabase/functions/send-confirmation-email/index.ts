@@ -48,7 +48,7 @@ serve(async (req) => {
   }
 
   try {
-    const { email, redirect_to } = await req.json();
+    const { email, password, redirect_to } = await req.json();
 
     if (!email) {
       return new Response(JSON.stringify({ error: 'email is required' }), { status: 400, headers: corsHeaders });
@@ -66,8 +66,9 @@ serve(async (req) => {
     );
 
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: 'magiclink',
+      type: 'signup',
       email,
+      password: password || crypto.randomUUID(),
       options: { redirectTo: redirect_to || 'https://1520aa3c-209e-4f9c-b475-4328e6f11771.lovableproject.com' },
     });
 
