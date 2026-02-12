@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import {
-  ArrowLeft, Sparkles, Users, UserPlus, Map, Castle, Swords, Loader2, Clapperboard, ShieldCheck, Gamepad2, Save, Pencil, Eye, Send, CheckCircle, AlertTriangle, Info,
+  ArrowLeft, Sparkles, Users, UserPlus, Map, Castle, Swords, Loader2, Clapperboard, ShieldCheck, Gamepad2, Save, Pencil, Eye, Send, CheckCircle, AlertTriangle, Info, RefreshCw, X,
 } from "lucide-react";
 
 interface GeneratorModule {
@@ -94,10 +94,12 @@ const Generators = () => {
   const [editedContent, setEditedContent] = useState("");
   const [reviewing, setReviewing] = useState(false);
   const [reviewResult, setReviewResult] = useState<any>(null);
+  const [lastPromptUsed, setLastPromptUsed] = useState("");
 
   const generate = useCallback(async (module: GeneratorModule) => {
     setGenerating(true);
     setStreamContent("");
+    setLastPromptUsed(customPrompt);
 
     try {
       const body: Record<string, string | undefined> = {
@@ -362,6 +364,20 @@ const Generators = () => {
                        </button>
                      </div>
                      <div className="flex gap-2">
+                       {currentModule && (
+                         <button
+                           onClick={() => { setCustomPrompt(lastPromptUsed); generate(currentModule); }}
+                           className="flex items-center gap-1.5 px-3 py-1.5 bg-accent border border-border rounded text-xs text-foreground hover:border-gold/50 transition-colors"
+                         >
+                           <RefreshCw size={13} /> Regenerar
+                         </button>
+                       )}
+                       <button
+                         onClick={() => { setStreamContent(""); setEditMode(false); setReviewResult(null); }}
+                         className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
+                       >
+                         <X size={13} /> Descartar
+                       </button>
                        {editMode && (
                          <button
                            onClick={reviewEdits}
@@ -375,7 +391,7 @@ const Generators = () => {
                        <button
                          onClick={saveContent}
                          disabled={saving || generating}
-                         className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded text-xs text-foreground hover:border-gold/50 transition-colors disabled:opacity-50"
+                         className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded text-xs font-display hover:bg-gold-dark transition-colors disabled:opacity-50"
                        >
                          {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
                          {saving ? "Guardando..." : "Guardar"}

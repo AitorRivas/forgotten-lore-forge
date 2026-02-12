@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { ArrowLeft, Sparkles, Scroll, BookOpen, Compass, Pencil, Eye, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Scroll, BookOpen, Compass, Pencil, Eye, Save, Loader2, RefreshCw, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import CampaignContextPanel from "@/components/CampaignContextPanel";
 import CampaignAnalysisPanel, { type CampaignAnalysis } from "@/components/CampaignAnalysisPanel";
@@ -45,6 +45,10 @@ const CampaignView = () => {
   const [editingMission, setEditingMission] = useState(false);
   const [editedMissionContent, setEditedMissionContent] = useState("");
   const [savingMission, setSavingMission] = useState(false);
+  const [editingGenerated, setEditingGenerated] = useState(false);
+  const [editedGeneratedContent, setEditedGeneratedContent] = useState("");
+  const [savingGenerated, setSavingGenerated] = useState(false);
+  const [lastPromptUsed, setLastPromptUsed] = useState("");
 
   useEffect(() => {
     if (id) {
@@ -123,6 +127,9 @@ const CampaignView = () => {
     setGenerating(true);
     setStreamContent("");
     setSelectedMission(null);
+    setEditingGenerated(false);
+    setEditedGeneratedContent("");
+    setLastPromptUsed(customPrompt);
 
     try {
       const resp = await fetch(
@@ -188,8 +195,22 @@ const CampaignView = () => {
         }
       }
 
-      // Save the mission
-      const titleMatch = fullContent.match(/##\s*🗡️\s*(.+)/);
+      toast.success("¡Contenido generado! Revísalo antes de guardar.");
+      setCustomPrompt("");
+    } catch (e: any) {
+      toast.error(e.message || "Error generando misión");
+    } finally {
+      setGenerating(false);
+    }
+  }, [campaign, customPrompt, userId]);
+
+  const saveGeneratedMission = useCallback(async () => {
+    const contentToSave = editingGenerated ? editedGeneratedContent : streamContent;
+    if (!contentToSave || !campaign) return;
+    setSavingGenerated(true);
+
+    try {
+      const titleMatch = contentToSave.match(/##\s*🗡️\s*(.+)/);
       const title = titleMatch ? titleMatch[1].trim() : "Misión sin título";
 
       const { data: { user } } = await supabase.auth.getUser();
@@ -199,46 +220,51 @@ const CampaignView = () => {
         campaign_id: campaign.id,
         user_id: user.id,
         title,
-        full_content: fullContent,
+        full_content: contentToSave,
         session_number: missions.length + 1,
       });
 
-      if (error) {
-        toast.error("Error guardando misión");
-      } else {
-        // Update campaign context via AI extraction
-        try {
-          await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-context`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-              },
-              body: JSON.stringify({
-                campaignId: campaign.id,
-                userId: user.id,
-                missionTitle: title,
-                missionContent: fullContent,
-              }),
-            }
-          );
-        } catch (contextError) {
-          console.error("Error updating context:", contextError);
-        }
+      if (error) throw new Error("Error guardando misión");
 
-        toast.success("¡Misión generada y guardada!");
-        setCustomPrompt("");
-        fetchMissions();
-        fetchCampaign(); // Refresh campaign context
+      // Update campaign context
+      try {
+        await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-context`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({
+              campaignId: campaign.id,
+              userId: user.id,
+              missionTitle: title,
+              missionContent: contentToSave,
+            }),
+          }
+        );
+      } catch (contextError) {
+        console.error("Error updating context:", contextError);
       }
+
+      toast.success("¡Misión guardada!");
+      setStreamContent("");
+      setEditingGenerated(false);
+      fetchMissions();
+      fetchCampaign();
     } catch (e: any) {
-      toast.error(e.message || "Error generando misión");
+      toast.error(e.message || "Error guardando");
     } finally {
-      setGenerating(false);
+      setSavingGenerated(false);
     }
-  }, [campaign, missions, customPrompt, userId]);
+  }, [streamContent, editedGeneratedContent, editingGenerated, campaign, missions]);
+
+  const discardGenerated = useCallback(() => {
+    setStreamContent("");
+    setEditingGenerated(false);
+    setEditedGeneratedContent("");
+  }, []);
 
   if (loading || !campaign) {
     return (
@@ -371,7 +397,63 @@ const CampaignView = () => {
 
           {/* Main Content */}
           <div className={showContext ? "lg:col-span-2" : "lg:col-span-2"}>
-            {generating && streamContent ? (
+            {streamContent && !generating ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="ornate-border rounded-lg p-6 parchment-bg"
+              >
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setEditingGenerated(false)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-display transition-colors ${!editingGenerated ? "bg-gold/20 text-gold border border-gold/40" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      <Eye size={13} /> Vista
+                    </button>
+                    <button
+                      onClick={() => { setEditingGenerated(true); setEditedGeneratedContent(streamContent); }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-display transition-colors ${editingGenerated ? "bg-gold/20 text-gold border border-gold/40" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      <Pencil size={13} /> Editar
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setCustomPrompt(lastPromptUsed); generateMission(); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-accent border border-border rounded text-xs text-foreground hover:border-gold/50 transition-colors"
+                    >
+                      <RefreshCw size={13} /> Regenerar
+                    </button>
+                    <button
+                      onClick={discardGenerated}
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <X size={13} /> Descartar
+                    </button>
+                    <button
+                      onClick={saveGeneratedMission}
+                      disabled={savingGenerated}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded text-xs font-display hover:bg-gold-dark transition-colors disabled:opacity-50"
+                    >
+                      {savingGenerated ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                      {savingGenerated ? "Guardando..." : "Guardar"}
+                    </button>
+                  </div>
+                </div>
+                {editingGenerated ? (
+                  <textarea
+                    value={editedGeneratedContent}
+                    onChange={(e) => setEditedGeneratedContent(e.target.value)}
+                    className="w-full min-h-[500px] bg-secondary/50 border border-border rounded p-4 text-sm text-foreground font-mono leading-relaxed focus:outline-none focus:border-gold/50 transition-colors resize-y"
+                  />
+                ) : (
+                  <div className="prose-fantasy">
+                    <ReactMarkdown>{streamContent}</ReactMarkdown>
+                  </div>
+                )}
+              </motion.div>
+            ) : generating && streamContent ? (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
