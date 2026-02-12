@@ -74,7 +74,27 @@ const AuthPage = () => {
 
           if (!updateRes.ok) {
             const errorData = await updateRes.json();
-            throw new Error("Error guardando nick: " + errorData.error);
+            console.error("Error guardando nick:", errorData.error);
+          }
+
+          // Send branded confirmation email via Resend
+          const emailRes = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-confirmation-email`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: JSON.stringify({
+                email,
+                redirect_to: window.location.origin,
+              }),
+            }
+          );
+
+          if (!emailRes.ok) {
+            console.error("Error enviando email personalizado");
           }
         }
 
