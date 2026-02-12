@@ -88,6 +88,7 @@ const AuthPage = () => {
               },
               body: JSON.stringify({
                 email,
+                password,
                 redirect_to: window.location.origin,
               }),
             }
