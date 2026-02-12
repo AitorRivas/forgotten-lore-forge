@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.generate-document]
 verify_jwt = false
+
+[functions.update-user-nickname]
+verify_jwt = false
