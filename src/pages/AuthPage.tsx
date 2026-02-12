@@ -55,19 +55,30 @@ const AuthPage = () => {
         });
         if (signUpError) throw signUpError;
 
-        // Create profile with nickname
+        // Update profile nickname via edge function (uses service role)
         if (signUpData.user) {
-          const { error: profileError } = await supabase.from("profiles").insert({
-            user_id: signUpData.user.id,
-            nickname: nickname.trim(),
-          });
-          if (profileError) {
-            throw new Error("Error creando perfil: " + profileError.message);
+          const updateRes = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-user-nickname`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: JSON.stringify({
+                user_id: signUpData.user.id,
+                nickname: nickname.trim(),
+              }),
+            }
+          );
+
+          if (!updateRes.ok) {
+            const errorData = await updateRes.json();
+            throw new Error("Error guardando nick: " + errorData.error);
           }
         }
 
-        toast.success("¡Cuenta creada! Bienvenido, " + nickname.trim());
-        navigate("/dashboard");
+        toast.success("¡Cuenta creada! Revisa tu email para verificar tu cuenta.");
       }
     } catch (error: any) {
       toast.error(error.message);
