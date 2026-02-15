@@ -65,16 +65,36 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     );
 
-    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+    const redirectTo = redirect_to || 'https://1520aa3c-209e-4f9c-b475-4328e6f11771.lovableproject.com';
+
+    // Try signup first; if user already exists, fall back to magiclink
+    let linkData;
+    const { data: signupData, error: signupError } = await supabase.auth.admin.generateLink({
       type: 'signup',
       email,
       password: password || crypto.randomUUID(),
-      options: { redirectTo: redirect_to || 'https://1520aa3c-209e-4f9c-b475-4328e6f11771.lovableproject.com' },
+      options: { redirectTo },
     });
 
-    if (linkError) {
-      console.error('Error generating link:', linkError);
-      throw new Error('Could not generate confirmation link: ' + linkError.message);
+    if (signupError) {
+      if (signupError.message?.includes('already been registered')) {
+        console.log('User exists, generating magiclink instead');
+        const { data: mlData, error: mlError } = await supabase.auth.admin.generateLink({
+          type: 'magiclink',
+          email,
+          options: { redirectTo },
+        });
+        if (mlError) {
+          console.error('Error generating magiclink:', mlError);
+          throw new Error('Could not generate confirmation link: ' + mlError.message);
+        }
+        linkData = mlData;
+      } else {
+        console.error('Error generating link:', signupError);
+        throw new Error('Could not generate confirmation link: ' + signupError.message);
+      }
+    } else {
+      linkData = signupData;
     }
 
     const confirmUrl = linkData?.properties?.action_link;
