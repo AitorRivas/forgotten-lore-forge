@@ -96,12 +96,14 @@ const Generators = () => {
   const [reviewResult, setReviewResult] = useState<any>(null);
   const [lastPromptUsed, setLastPromptUsed] = useState("");
   const [providerType, setProviderType] = useState<"primary" | "alternative" | null>(null);
+  const [serviceUnavailable, setServiceUnavailable] = useState(false);
 
   const generate = useCallback(async (module: GeneratorModule) => {
     setGenerating(true);
     setStreamContent("");
     setLastPromptUsed(customPrompt);
     setProviderType(null);
+    setServiceUnavailable(false);
 
     try {
       const body: Record<string, string | undefined> = {
@@ -175,7 +177,11 @@ const Generators = () => {
       toast.success("¡Contenido generado!");
       setCustomPrompt("");
     } catch (e: any) {
-      toast.error(e.message || "Error generando contenido");
+      if (e.message?.includes("saturados") || e.message?.includes("no disponible") || e.message?.includes("429")) {
+        setServiceUnavailable(true);
+      } else {
+        toast.error(e.message || "Error generando contenido");
+      }
     } finally {
       setGenerating(false);
     }
@@ -349,7 +355,25 @@ const Generators = () => {
 
             {/* Output */}
             <div className="lg:col-span-2 space-y-4">
-              {streamContent ? (
+              {serviceUnavailable && !streamContent ? (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ornate-border rounded-lg p-10 parchment-bg text-center space-y-4">
+                  <AlertTriangle className="mx-auto text-amber-400" size={40} />
+                  <h3 className="font-display text-lg text-foreground">
+                    Servicio temporalmente no disponible
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                    El servicio de generación está temporalmente no disponible. Inténtalo en unos minutos.
+                  </p>
+                  <button
+                    onClick={() => currentModule && generate(currentModule)}
+                    disabled={generating}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground font-display rounded hover:bg-gold-dark transition-colors disabled:opacity-50"
+                  >
+                    {generating ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                    Reintentar
+                  </button>
+                </motion.div>
+              ) : streamContent ? (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
