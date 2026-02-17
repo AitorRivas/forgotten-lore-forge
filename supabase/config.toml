@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.send-confirmation-email]
 verify_jwt = false
+
+[functions.generate-encounter]
+verify_jwt = false

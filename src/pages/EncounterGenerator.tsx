@@ -81,109 +81,7 @@ const EncounterGenerator = () => {
     fetchCampaigns();
   }, []);
 
-  const formatEncounterMarkdown = (enc: any): string => {
-    if (!enc || enc.parse_error) return enc?.raw || "Error al parsear el encuentro.";
-
-    let md = `# ⚔️ ${enc.title || "Encuentro"}\n\n`;
-    md += `**Tipo:** ${enc.encounter_type || "Híbrido"}\n\n`;
-
-    if (enc.context) {
-      md += `## 📍 Contexto\n`;
-      md += `- **Situación:** ${enc.context.situation || ""}\n`;
-      md += `- **Ubicación:** ${enc.context.location || ""}\n`;
-      md += `- **En juego:** ${enc.context.stakes || ""}\n`;
-      md += `- **Presión temporal:** ${enc.context.time_pressure || "none"}\n`;
-      md += `- **¿Por qué ahora?:** ${enc.context.why_now || ""}\n\n`;
-    }
-
-    if (enc.narrative_tension) {
-      md += `## 🎭 Tensión Narrativa\n`;
-      md += `- **Tensión inicial:** ${enc.narrative_tension.opening_tension || ""}\n`;
-      if (enc.narrative_tension.escalation_triggers?.length) {
-        md += `- **Detonantes de escalada:**\n`;
-        enc.narrative_tension.escalation_triggers.forEach((t: string) => { md += `  - ${t}\n`; });
-      }
-      if (enc.narrative_tension.deescalation_options?.length) {
-        md += `- **Opciones de desescalada:**\n`;
-        enc.narrative_tension.deescalation_options.forEach((o: string) => { md += `  - ${o}\n`; });
-      }
-      md += `- **Punto sin retorno:** ${enc.narrative_tension.point_of_no_return || ""}\n\n`;
-    }
-
-    if (enc.involved_parties?.length) {
-      md += `## 👥 Partes Involucradas\n`;
-      enc.involved_parties.forEach((p: any) => {
-        md += `### ${p.name}\n`;
-        md += `- **Motivación:** ${p.motivation || ""}\n`;
-        md += `- **Disposición:** ${p.disposition || ""}\n`;
-        md += `- **Capacidad de combate:** ${p.combat_capability || ""}\n`;
-        md += `- **Punto de ruptura:** ${p.breaking_point || ""}\n\n`;
-      });
-    }
-
-    if (enc.combat_scenario) {
-      md += `## ⚔️ Escenario de Combate\n`;
-      if (enc.combat_scenario.enemies?.length) {
-        md += `### Enemigos\n`;
-        enc.combat_scenario.enemies.forEach((e: any) => {
-          md += `- **${e.name}** (CR ${e.cr}) — Táctica: ${e.tactics || ""}, Moral: ${e.morale_break || ""}\n`;
-        });
-        md += `\n`;
-      }
-      if (enc.combat_scenario.terrain_features?.length) {
-        md += `**Terreno:** ${enc.combat_scenario.terrain_features.join(", ")}\n`;
-      }
-      if (enc.combat_scenario.environmental_hazards?.length) {
-        md += `**Peligros ambientales:** ${enc.combat_scenario.environmental_hazards.join(", ")}\n`;
-      }
-      if (enc.combat_scenario.victory_conditions?.length) {
-        md += `**Condiciones de victoria:** ${enc.combat_scenario.victory_conditions.join(", ")}\n`;
-      }
-      md += `\n`;
-    }
-
-    if (enc.social_options?.length) {
-      md += `## 🗣️ Opciones Sociales\n`;
-      enc.social_options.forEach((s: any) => {
-        md += `### ${s.approach}\n`;
-        md += `- **Habilidades clave:** ${s.key_skills?.join(", ") || ""}\n`;
-        md += `- **Éxito:** ${s.success_outcome || ""}\n`;
-        md += `- **Éxito parcial:** ${s.partial_success || ""}\n`;
-        md += `- **Fallo:** ${s.failure_consequence || ""}\n\n`;
-      });
-    }
-
-    if (enc.stealth_option) {
-      md += `## 🥷 Opción Sigilosa\n`;
-      md += `- **Enfoque:** ${enc.stealth_option.approach || ""}\n`;
-      md += `- **Detección:** ${enc.stealth_option.detection_consequences || ""}\n`;
-      md += `- **Éxito:** ${enc.stealth_option.success_outcome || ""}\n\n`;
-    }
-
-    if (enc.consequences_by_approach) {
-      md += `## 📊 Consecuencias por Enfoque\n`;
-      const approaches: Record<string, string> = {
-        full_combat: "Combate total",
-        full_diplomacy: "Diplomacia total",
-        stealth_resolution: "Sigilo",
-        mixed_approach: "Enfoque mixto",
-      };
-      Object.entries(approaches).forEach(([key, label]) => {
-        const c = enc.consequences_by_approach[key];
-        if (c) {
-          md += `### ${label}\n`;
-          md += `- **Inmediato:** ${c.immediate || ""}\n`;
-          md += `- **Reputación:** ${c.reputation_impact || ""}\n`;
-          md += `- **Campaña:** ${c.campaign_impact || ""}\n\n`;
-        }
-      });
-    }
-
-    if (enc.dm_notes) md += `## 📝 Notas del DM\n${enc.dm_notes}\n\n`;
-    if (enc.summary) md += `---\n*${enc.summary}*\n`;
-
-    return md;
-  };
+  // No longer needed — encounter_markdown comes as plain Markdown from the edge function
 
   const generateEncounter = useCallback(async () => {
     setGenerating(true);
@@ -191,23 +89,29 @@ const EncounterGenerator = () => {
     setEditMode(false);
 
     try {
-      const partyDesc = partyMembers.map((m) => `${m.className} nivel ${m.level}`).join(", ");
-      const diffLabel = DIFFICULTY_LABELS[difficultyLevel].label;
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+
       const body = {
+        partyMembers: partyMembers.map((m) => ({ className: m.className, level: m.level })),
+        partySize: partyMembers.length,
+        avgLevel,
+        difficulty: difficultyLevel,
+        difficultyLabel: DIFFICULTY_LABELS[difficultyLevel].label,
         region,
-        tone: "épico",
-        partyLevel: `Grupo: ${partyDesc}. Nivel promedio ${avgLevel}, ${partyMembers.length} jugadores, dificultad ${diffLabel}`,
         encounterTheme: encounterTheme || undefined,
         specificRequest: specificRequest || undefined,
+        campaignId: selectedCampaignId || undefined,
+        userId: user?.id,
       };
 
       const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-hybrid-encounter`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-encounter`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify(body),
         }
@@ -219,20 +123,20 @@ const EncounterGenerator = () => {
       }
 
       const data = await resp.json();
-      setEncounter(data.encounter);
+      setEncounter(data.encounter_markdown);
       toast.success("¡Encuentro generado!");
     } catch (e: any) {
       toast.error(e.message || "Error generando encuentro");
     } finally {
       setGenerating(false);
     }
-  }, [region, partyMembers, avgLevel, difficultyLevel, encounterTheme, specificRequest]);
+  }, [region, partyMembers, avgLevel, difficultyLevel, encounterTheme, specificRequest, selectedCampaignId]);
 
   const saveEncounter = useCallback(async () => {
     if (!encounter) return;
     setSaving(true);
     try {
-      const content = editMode ? editedContent : formatEncounterMarkdown(encounter);
+      const content = editMode ? editedContent : encounter;
 
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/format-and-store`,
@@ -267,7 +171,7 @@ const EncounterGenerator = () => {
     }
   }, [encounter, editMode, editedContent, selectedCampaignId]);
 
-  const markdownContent = encounter ? formatEncounterMarkdown(encounter) : "";
+  const markdownContent = encounter || "";
 
   return (
     <div className="min-h-screen bg-background">
