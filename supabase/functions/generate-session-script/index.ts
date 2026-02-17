@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { callAIWithFallback } from "../_shared/ai-provider.ts";
+import { generateWithFallback } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,70 +11,57 @@ const SYSTEM_PROMPT = `Eres un Dungeon Master profesional que convierte contenid
 
 Tu trabajo es transformar misiones o contenido en GUIONES LISTOS PARA JUGAR: descripciones evocadoras, escenas estructuradas, decisiones ramificadas y cliffhangers.
 
-FORMATO DE RESPUESTA (usa markdown):
+Incluye las siguientes secciones en tu respuesta:
 
-## 🎭 Guión de Sesión: [Título]
+## Guión de Sesión: [Título]
 
-### 📋 Resumen para el DM
+### Resumen para el DM
 [Párrafo conciso de 2-3 líneas]
 
----
+### Escenas (2-4 escenas principales)
+Para cada escena:
+- **Objetivo:** qué debe lograr el DM
+- **Ambientación:** descripción sensorial
+- **PNJs presentes:** quiénes están
+- **Entrada del jugador:** cómo comienza
+- **Descripción narrativa (lee esto):** Párrafo atmosférico de 3-4 líneas
+- **Decisiones posibles:** opciones de los jugadores con resultados
+- **Encuentro (si aplica):** tipo, enemigos, dificultad
 
-### 🎬 Escenas (2-4 escenas principales)
+### Árbol de Resultados Alternativos
+Triunfo / Fracaso / Resultado mixto
 
-#### Escena 1: [Nombre evocador]
-**Objetivo:** [qué debe lograr el DM]
-**Ambientación:** [descripción sensorial]
-**PNJs presentes:** [quiénes están]
-**Entrada del jugador:** [cómo comienza]
+### Pistas y Secretos
+Pistas descubribles y secretos ocultos
 
-**Descripción narrativa (lee esto):**
-[Párrafo de 3-4 líneas atmosférico]
+### Encuentros Principales
+Detallados con stats
 
-**Decisiones posibles:**
-- **Si dialogan con [NPC]:** [resultado]
-- **Si investigan [lugar]:** [descubrimiento]
-- **Si actúan violentamente:** [consecuencias]
-- **Si intentan escapar:** [evolución]
+### Cliffhanger / Gancho para Próxima Sesión
+Revelación impactante
 
-**Encuentro (si aplica):**
-- **Tipo:** [combate|social|exploración|puzzle]
-- **Enemigos/desafío:** [qué se opone]
-- **Dificultad:** [Fácil|Medio|Difícil|Mortal]
-
----
-
-### 🧩 Árbol de Resultados Alternativos
-[Triunfo / Fracaso / Resultado mixto]
-
-### 💡 Pistas y Secretos
-[Pistas descubribles y secretos ocultos]
-
-### ⚔️ Encuentros Principales
-[Detallados con stats]
-
-### 🔮 Cliffhanger / Gancho para Próxima Sesión
-[Revelación impactante]
-
-### 📌 Notas para el DM
-[Consejos prácticos]`;
+### Notas para el DM
+Consejos prácticos`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const { customPrompt } = await req.json();
-    const prompt = customPrompt
+
+    const userPrompt = customPrompt
       ? `Convierte este contenido en un guión de sesión ejecutable:\n\n${customPrompt}`
       : `Crea un guión de sesión completo y original para un grupo de aventureros de nivel 5-7 en Forgotten Realms.`;
 
-    const response = await callAIWithFallback(
-      [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: prompt }],
-      { model: "gemini-2.5-pro", stream: true }
-    );
+    const response = await generateWithFallback(SYSTEM_PROMPT, userPrompt, {
+      contentType: "session-script",
+      outputFormat: "markdown",
+      stream: true,
+      model: "gemini-2.5-pro",
+    });
 
     if (!response) {
-      return new Response(JSON.stringify({ error: "Ambos servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
+      return new Response(JSON.stringify({ error: "Los servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
