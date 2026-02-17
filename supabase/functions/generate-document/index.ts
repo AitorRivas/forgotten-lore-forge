@@ -1,19 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callAIWithFallback } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-async function callAIWithFallback(messages: any[], options: { model?: string; temperature?: number; response_mime_type?: string } = {}) {
-  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY"); const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  const geminiModel = options.model || "gemini-2.5-pro"; const body: any = { model: geminiModel, messages };
-  if (options.temperature !== undefined) body.temperature = options.temperature; if (options.response_mime_type) body.response_mime_type = options.response_mime_type;
-  if (GEMINI_API_KEY) { try { const resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", { method: "POST", headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(body) }); if (resp.ok) return resp; if (resp.status === 429) console.log("Gemini rate limited..."); else console.error("Gemini error:", resp.status); } catch (e) { console.error("Gemini fetch error:", e); } }
-  if (LOVABLE_API_KEY) { try { const lovBody = { ...body, model: `google/${geminiModel}` }; delete lovBody.response_mime_type; const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", { method: "POST", headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(lovBody) }); if (resp.ok) return resp; if (resp.status === 429 || resp.status === 402) console.log("Lovable AI (Google) unavailable, trying ChatGPT..."); else console.error("Lovable AI error:", resp.status); } catch (e) { console.error("Lovable AI error:", e); } }
-  if (LOVABLE_API_KEY) { const m = geminiModel.includes("flash") ? "openai/gpt-5-mini" : "openai/gpt-5"; try { const chatBody = { ...body, model: m }; delete chatBody.response_mime_type; const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", { method: "POST", headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(chatBody) }); if (resp.ok) return resp; console.error("ChatGPT fallback error:", resp.status); } catch (e) { console.error("ChatGPT error:", e); } }
-  return null;
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
