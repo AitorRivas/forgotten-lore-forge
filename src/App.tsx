@@ -12,6 +12,7 @@ import Generators from "./pages/Generators";
 import EncounterGenerator from "./pages/EncounterGenerator";
 import SceneGenerator from "./pages/SceneGenerator";
 import NpcGenerator from "./pages/NpcGenerator";
+import MagicItemGenerator from "./pages/MagicItemGenerator";
 import Library from "./pages/Library";
 import NotFound from "./pages/NotFound";
 
@@ -58,6 +59,7 @@ const App = () => (
           <Route path="/encounter-generator" element={<ProtectedRoute><EncounterGenerator /></ProtectedRoute>} />
           <Route path="/scene-generator" element={<ProtectedRoute><SceneGenerator /></ProtectedRoute>} />
           <Route path="/npc-generator" element={<ProtectedRoute><NpcGenerator /></ProtectedRoute>} />
+          <Route path="/magic-item-generator" element={<ProtectedRoute><MagicItemGenerator /></ProtectedRoute>} />
           <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -488,6 +488,131 @@ export type Database = {
           },
         ]
       }
+      objetos_magicos: {
+        Row: {
+          alineamiento_restringido: string | null
+          bonificadores: string | null
+          cargas: string | null
+          categoria_artefacto: string | null
+          clase_restringida: string | null
+          condiciones_de_desbloqueo: string | null
+          contenido_completo: string | null
+          creador_original: string | null
+          created_at: string
+          crecimiento_escalable: boolean
+          efectos_secundarios: string | null
+          es_artefacto: boolean
+          forma_de_recarga: string | null
+          ganchos_narrativos: string | null
+          habilidades_activas: string | null
+          habilidades_pasivas: string | null
+          historia_lore: string | null
+          id: string
+          maldiciones: string | null
+          mission_id: string | null
+          nivel_recomendado: string | null
+          nombre: string
+          notas_dm: string | null
+          origen: string | null
+          propiedades_magicas: string | null
+          rareza: string
+          region: string | null
+          requiere_sintonizacion: boolean
+          rol_objeto: string | null
+          rumores_asociados: string | null
+          subtipo: string | null
+          tags: string[] | null
+          tipo: string
+          tono: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alineamiento_restringido?: string | null
+          bonificadores?: string | null
+          cargas?: string | null
+          categoria_artefacto?: string | null
+          clase_restringida?: string | null
+          condiciones_de_desbloqueo?: string | null
+          contenido_completo?: string | null
+          creador_original?: string | null
+          created_at?: string
+          crecimiento_escalable?: boolean
+          efectos_secundarios?: string | null
+          es_artefacto?: boolean
+          forma_de_recarga?: string | null
+          ganchos_narrativos?: string | null
+          habilidades_activas?: string | null
+          habilidades_pasivas?: string | null
+          historia_lore?: string | null
+          id?: string
+          maldiciones?: string | null
+          mission_id?: string | null
+          nivel_recomendado?: string | null
+          nombre: string
+          notas_dm?: string | null
+          origen?: string | null
+          propiedades_magicas?: string | null
+          rareza?: string
+          region?: string | null
+          requiere_sintonizacion?: boolean
+          rol_objeto?: string | null
+          rumores_asociados?: string | null
+          subtipo?: string | null
+          tags?: string[] | null
+          tipo?: string
+          tono?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alineamiento_restringido?: string | null
+          bonificadores?: string | null
+          cargas?: string | null
+          categoria_artefacto?: string | null
+          clase_restringida?: string | null
+          condiciones_de_desbloqueo?: string | null
+          contenido_completo?: string | null
+          creador_original?: string | null
+          created_at?: string
+          crecimiento_escalable?: boolean
+          efectos_secundarios?: string | null
+          es_artefacto?: boolean
+          forma_de_recarga?: string | null
+          ganchos_narrativos?: string | null
+          habilidades_activas?: string | null
+          habilidades_pasivas?: string | null
+          historia_lore?: string | null
+          id?: string
+          maldiciones?: string | null
+          mission_id?: string | null
+          nivel_recomendado?: string | null
+          nombre?: string
+          notas_dm?: string | null
+          origen?: string | null
+          propiedades_magicas?: string | null
+          rareza?: string
+          region?: string | null
+          requiere_sintonizacion?: boolean
+          rol_objeto?: string | null
+          rumores_asociados?: string | null
+          subtipo?: string | null
+          tags?: string[] | null
+          tipo?: string
+          tono?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "objetos_magicos_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "misiones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

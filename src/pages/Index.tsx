@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Scroll, Sparkles, Shield, Swords, Users, Theater, BookOpen } from "lucide-react";
+import { Scroll, Sparkles, Shield, Swords, Users, Theater, BookOpen, Gem } from "lucide-react";
 import heroBg from "@/assets/hero-bg.jpg";
 
 const ACTIONS = [
@@ -8,6 +8,7 @@ const ACTIONS = [
   { label: "Crear Escena", icon: Theater, path: "/scene-generator", desc: "Eventos cerrados para improvisación inmediata" },
   { label: "Generar Encuentro", icon: Swords, path: "/encounter-generator", desc: "Encuentros balanceados con estrategia de DM" },
   { label: "Generar PNJ", icon: Users, path: "/npc-generator", desc: "Personajes completos con ficha 5e" },
+  { label: "Objeto Mágico", icon: Gem, path: "/magic-item-generator", desc: "Objetos mágicos y artefactos con lore" },
   { label: "Biblioteca", icon: BookOpen, path: "/library", desc: "Consulta y edita todo tu contenido guardado" },
 ];
 

@@ -4,12 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft, BookOpen, Search, Scroll, Theater, Swords, Users,
+  ArrowLeft, BookOpen, Search, Scroll, Theater, Swords, Users, Gem,
   ChevronDown, ChevronRight, Filter, Trash2,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
-type ContentType = "misiones" | "escenas" | "encounters" | "npcs";
+type ContentType = "misiones" | "escenas" | "encounters" | "npcs" | "objetos_magicos";
 
 interface LibraryItem {
   id: string;
@@ -28,6 +28,7 @@ const TAB_CONFIG: { type: ContentType; label: string; icon: React.ElementType }[
   { type: "escenas", label: "Escenas", icon: Theater },
   { type: "encounters", label: "Encuentros", icon: Swords },
   { type: "npcs", label: "PNJ", icon: Users },
+  { type: "objetos_magicos", label: "Objetos", icon: Gem },
 ];
 
 const Library = () => {
@@ -75,6 +76,13 @@ const Library = () => {
           id: n.id, type: "npcs" as const, title: n.nombre, subtitle: [n.rol, n.importancia].filter(Boolean).join(" · "),
           content: n.contenido_completo, tags: n.tags || [], level: n.nivel,
           location: n.localizacion, created_at: n.created_at,
+        }));
+      } else if (activeTab === "objetos_magicos") {
+        const { data } = await supabase.from("objetos_magicos" as any).select("*").order("created_at", { ascending: false });
+        mapped = (data || []).map((o: any) => ({
+          id: o.id, type: "objetos_magicos" as const, title: o.nombre, subtitle: [o.tipo, o.rareza].filter(Boolean).join(" · "),
+          content: o.contenido_completo, tags: o.tags || [], level: o.nivel_recomendado,
+          location: o.region, created_at: o.created_at,
         }));
       }
 
