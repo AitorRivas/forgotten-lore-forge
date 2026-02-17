@@ -19,6 +19,77 @@ const RETRY_DELAY_MS = 2000;
 const REQUEST_TIMEOUT_MS = 120_000;
 
 // ══════════════════════════════════════════════════════════
+//  CIRCUIT BREAKER — In-memory provider health tracking
+// ══════════════════════════════════════════════════════════
+
+const CIRCUIT_BREAKER_THRESHOLD = 3;     // failures to trigger
+const CIRCUIT_BREAKER_WINDOW_MS = 10 * 60 * 1000; // 10 min window
+const CIRCUIT_BREAKER_COOLDOWN_MS = 5 * 60 * 1000; // 5 min cooldown
+
+interface CircuitState {
+  failures: number[];        // timestamps of recent failures
+  unstableSince: number | null; // when it was marked unstable (null = healthy)
+}
+
+/** In-memory circuit state per provider. Persists across requests within same isolate. */
+const circuitStates: Record<string, CircuitState> = {};
+
+function getCircuitState(provider: string): CircuitState {
+  if (!circuitStates[provider]) {
+    circuitStates[provider] = { failures: [], unstableSince: null };
+  }
+  return circuitStates[provider];
+}
+
+/** Record a failure for a provider. Returns true if provider is now unstable. */
+function recordProviderFailure(provider: string): boolean {
+  const state = getCircuitState(provider);
+  const now = Date.now();
+
+  // Add failure timestamp
+  state.failures.push(now);
+
+  // Prune old failures outside the window
+  state.failures = state.failures.filter(t => now - t < CIRCUIT_BREAKER_WINDOW_MS);
+
+  // Check if threshold exceeded
+  if (state.failures.length >= CIRCUIT_BREAKER_THRESHOLD && !state.unstableSince) {
+    state.unstableSince = now;
+    console.warn(`🔴 Circuit breaker OPEN: ${provider} marcado como inestable (${state.failures.length} fallos en 10 min). Cooldown: 5 min.`);
+    return true;
+  }
+  return state.unstableSince !== null;
+}
+
+/** Record a success — reset the circuit breaker for this provider. */
+function recordProviderSuccess(provider: string) {
+  const state = getCircuitState(provider);
+  if (state.unstableSince) {
+    console.log(`🟢 Circuit breaker CLOSED: ${provider} recuperado.`);
+  }
+  state.failures = [];
+  state.unstableSince = null;
+}
+
+/** Check if a provider should be skipped (circuit is open and cooldown hasn't elapsed). */
+function isProviderUnstable(provider: string): boolean {
+  const state = getCircuitState(provider);
+  if (!state.unstableSince) return false;
+
+  const elapsed = Date.now() - state.unstableSince;
+  if (elapsed >= CIRCUIT_BREAKER_COOLDOWN_MS) {
+    // Cooldown elapsed — allow a probe attempt (half-open state)
+    console.log(`🟡 Circuit breaker HALF-OPEN: ${provider} — probando tras ${Math.round(elapsed / 1000)}s de cooldown.`);
+    state.unstableSince = null; // Reset, will re-trigger if it fails again
+    state.failures = [];
+    return false;
+  }
+
+  console.log(`⏭️ Saltando ${provider} — inestable (${Math.round((CIRCUIT_BREAKER_COOLDOWN_MS - elapsed) / 1000)}s restantes de cooldown).`);
+  return true;
+}
+
+// ══════════════════════════════════════════════════════════
 //  TYPES
 // ══════════════════════════════════════════════════════════
 
@@ -202,35 +273,49 @@ export async function callAIWithFallback(
   if (options.temperature !== undefined) baseBody.temperature = options.temperature;
   if (options.response_mime_type) baseBody.response_mime_type = options.response_mime_type;
 
-  // ── 1. Gemini Pro (API directa) ──
-  if (GEMINI_API_KEY) {
+  const geminiUnstable = isProviderUnstable("Gemini Direct");
+
+  // ── 1. Gemini Pro (API directa) — skip if circuit breaker is open ──
+  if (GEMINI_API_KEY && !geminiUnstable) {
     const resp = await tryWithRetry(
       "Gemini Direct", GEMINI_API_URL,
       { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
       baseBody, userId,
     );
-    if (resp) return resp;
+    if (resp) {
+      recordProviderSuccess("Gemini Direct");
+      return resp;
+    }
+    recordProviderFailure("Gemini Direct");
   }
 
   // ── 2. ChatGPT (via Lovable Gateway) ──
-  if (LOVABLE_API_KEY) {
+  if (LOVABLE_API_KEY && !isProviderUnstable("ChatGPT (Gateway)")) {
     const chatGPTModel = geminiModel.includes("flash") ? "openai/gpt-5-mini" : "openai/gpt-5";
     const resp = await tryWithRetry(
       "ChatGPT (Gateway)", LOVABLE_GATEWAY_URL,
       { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       { ...baseBody, model: chatGPTModel }, userId,
     );
-    if (resp) return resp;
+    if (resp) {
+      recordProviderSuccess("ChatGPT (Gateway)");
+      return resp;
+    }
+    recordProviderFailure("ChatGPT (Gateway)");
   }
 
   // ── 3. IA nativa Lovable (Gemini via Gateway) ──
-  if (LOVABLE_API_KEY) {
+  if (LOVABLE_API_KEY && !isProviderUnstable("Lovable Native")) {
     const resp = await tryWithRetry(
       "Lovable Native", LOVABLE_GATEWAY_URL,
       { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       { ...baseBody, model: `google/${geminiModel}` }, userId,
     );
-    if (resp) return resp;
+    if (resp) {
+      recordProviderSuccess("Lovable Native");
+      return resp;
+    }
+    recordProviderFailure("Lovable Native");
   }
 
   console.error("❌ Todos los proveedores de IA han fallado");
