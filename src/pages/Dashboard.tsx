@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Plus, Scroll, LogOut, Wand2 } from "lucide-react";
+import { Plus, Scroll, LogOut, Wand2, Swords } from "lucide-react";
 import CreateCampaignDialog from "@/components/CreateCampaignDialog";
 import ContextPanel from "@/components/ContextPanel";
 
@@ -60,6 +60,13 @@ const Dashboard = () => {
             Crónicas de Faerûn
           </h1>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate("/encounter-generator")}
+              className="flex items-center gap-2 text-gold hover:text-gold-light transition-colors"
+            >
+              <Swords size={18} />
+              <span className="text-sm font-display">Encuentros</span>
+            </button>
             <button
               onClick={() => navigate("/generators")}
               className="flex items-center gap-2 text-gold hover:text-gold-light transition-colors"
