@@ -10,6 +10,9 @@ import MissionsDashboard from "./pages/MissionsDashboard";
 import MissionDetail from "./pages/MissionDetail";
 import Generators from "./pages/Generators";
 import EncounterGenerator from "./pages/EncounterGenerator";
+import SceneGenerator from "./pages/SceneGenerator";
+import NpcGenerator from "./pages/NpcGenerator";
+import Library from "./pages/Library";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -53,6 +56,9 @@ const App = () => (
           <Route path="/mission/:id" element={<ProtectedRoute><MissionDetail /></ProtectedRoute>} />
           <Route path="/generators" element={<ProtectedRoute><Generators /></ProtectedRoute>} />
           <Route path="/encounter-generator" element={<ProtectedRoute><EncounterGenerator /></ProtectedRoute>} />
+          <Route path="/scene-generator" element={<ProtectedRoute><SceneGenerator /></ProtectedRoute>} />
+          <Route path="/npc-generator" element={<ProtectedRoute><NpcGenerator /></ProtectedRoute>} />
+          <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

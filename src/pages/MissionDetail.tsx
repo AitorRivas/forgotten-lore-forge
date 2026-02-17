@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, ChevronRight, ChevronDown, Swords, Target, Plus,
-  Link2, Pencil, Save, Loader2, Scroll, Check, Archive, Trash2,
+  Link2, Pencil, Save, Loader2, Scroll, Check, Archive, Trash2, Theater,
 } from "lucide-react";
 import CreateMissionDialog from "@/components/CreateMissionDialog";
 
@@ -56,6 +56,7 @@ const MissionDetail = () => {
   const [mision, setMision] = useState<Mision | null>(null);
   const [submisiones, setSubmisiones] = useState<Mision[]>([]);
   const [encounters, setEncounters] = useState<Encounter[]>([]);
+  const [scenes, setScenes] = useState<any[]>([]);
   const [linkedMisions, setLinkedMisions] = useState<LinkedMision[]>([]);
   const [breadcrumb, setBreadcrumb] = useState<{ id: string; titulo: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +66,7 @@ const MissionDetail = () => {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     info: true,
     submisiones: true,
+    escenas: false,
     encuentros: false,
     relacionadas: false,
   });
@@ -80,7 +82,7 @@ const MissionDetail = () => {
 
   const fetchAll = async () => {
     setLoading(true);
-    await Promise.all([fetchMision(), fetchSubmisiones(), fetchEncounters()]);
+    await Promise.all([fetchMision(), fetchSubmisiones(), fetchEncounters(), fetchScenes()]);
     setLoading(false);
   };
 
@@ -151,6 +153,15 @@ const MissionDetail = () => {
       .order("created_at", { ascending: false });
 
     setEncounters((data as Encounter[]) || []);
+  };
+
+  const fetchScenes = async () => {
+    const { data } = await supabase
+      .from("escenas" as any)
+      .select("id, titulo, tipo, localizacion, created_at")
+      .eq("mission_id", id!)
+      .order("created_at", { ascending: false });
+    setScenes((data as any[]) || []);
   };
 
   const updateEstado = async (newEstado: string) => {
@@ -352,6 +363,36 @@ const MissionDetail = () => {
             className="w-full mt-3 flex items-center justify-center gap-2 border border-dashed border-border rounded-lg py-3 text-sm text-muted-foreground hover:text-gold hover:border-gold/40 transition-colors"
           >
             <Plus size={16} /> Añadir Submisión
+          </button>
+        </SectionCard>
+
+        {/* SECTION: Escenas */}
+        <SectionCard
+          title={`Escenas (${scenes.length})`}
+          icon={Theater}
+          open={expandedSections.escenas}
+          onToggle={() => toggleSection("escenas")}
+        >
+          {scenes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No hay escenas asociadas</p>
+          ) : (
+            <div className="space-y-2">
+              {scenes.map((scene: any) => (
+                <div key={scene.id} className="ornate-border rounded-lg p-3">
+                  <span className="text-sm text-foreground">{scene.titulo}</span>
+                  <div className="flex gap-2 mt-1 text-xs text-muted-foreground">
+                    {scene.tipo && <span className="capitalize">{scene.tipo}</span>}
+                    {scene.localizacion && <><span>·</span><span>{scene.localizacion}</span></>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={() => navigate(`/scene-generator?missionId=${mision.id}`)}
+            className="w-full mt-3 flex items-center justify-center gap-2 border border-dashed border-border rounded-lg py-3 text-sm text-muted-foreground hover:text-gold hover:border-gold/40 transition-colors"
+          >
+            <Theater size={16} /> Generar Escena
           </button>
         </SectionCard>
 

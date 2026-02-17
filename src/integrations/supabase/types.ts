@@ -134,6 +134,83 @@ export type Database = {
           },
         ]
       }
+      escenas: {
+        Row: {
+          conflicto_central: string | null
+          consecuencias_inmediatas: string | null
+          created_at: string
+          criaturas_involucradas: Json | null
+          descripcion_narrativa: string | null
+          detonante: string | null
+          giro_inesperado: string | null
+          id: string
+          localizacion: string | null
+          mission_id: string | null
+          nivel_recomendado: string | null
+          notas_dm: string | null
+          pnj_involucrados: Json | null
+          posibles_resoluciones: Json | null
+          tags: string[] | null
+          tipo: string | null
+          titulo: string
+          tono: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          conflicto_central?: string | null
+          consecuencias_inmediatas?: string | null
+          created_at?: string
+          criaturas_involucradas?: Json | null
+          descripcion_narrativa?: string | null
+          detonante?: string | null
+          giro_inesperado?: string | null
+          id?: string
+          localizacion?: string | null
+          mission_id?: string | null
+          nivel_recomendado?: string | null
+          notas_dm?: string | null
+          pnj_involucrados?: Json | null
+          posibles_resoluciones?: Json | null
+          tags?: string[] | null
+          tipo?: string | null
+          titulo: string
+          tono?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          conflicto_central?: string | null
+          consecuencias_inmediatas?: string | null
+          created_at?: string
+          criaturas_involucradas?: Json | null
+          descripcion_narrativa?: string | null
+          detonante?: string | null
+          giro_inesperado?: string | null
+          id?: string
+          localizacion?: string | null
+          mission_id?: string | null
+          nivel_recomendado?: string | null
+          notas_dm?: string | null
+          pnj_involucrados?: Json | null
+          posibles_resoluciones?: Json | null
+          tags?: string[] | null
+          tipo?: string | null
+          titulo?: string
+          tono?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escenas_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "misiones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_content: {
         Row: {
           campaign_id: string | null
@@ -283,6 +360,128 @@ export type Database = {
           {
             foreignKeyName: "misiones_mission_parent_id_fkey"
             columns: ["mission_parent_id"]
+            isOneToOne: false
+            referencedRelation: "misiones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      npcs: {
+        Row: {
+          acciones: string | null
+          acciones_guarida: string | null
+          acciones_legendarias: string | null
+          alineamiento: string | null
+          atributos: Json | null
+          ca: number | null
+          clase_arquetipo: string | null
+          competencias: string | null
+          contenido_completo: string | null
+          created_at: string
+          equipo: string | null
+          facciones: string | null
+          habilidades: string | null
+          historia_lore: string | null
+          hp: string | null
+          id: string
+          idiomas: string | null
+          importancia: string | null
+          localizacion: string | null
+          mission_id: string | null
+          motivaciones: string | null
+          nivel: string | null
+          nombre: string
+          rasgos_especiales: string | null
+          raza: string | null
+          reacciones: string | null
+          resistencias_inmunidades: string | null
+          rol: string | null
+          secretos: string | null
+          sentidos: string | null
+          tags: string[] | null
+          trasfondo: string | null
+          updated_at: string
+          user_id: string
+          velocidad: string | null
+        }
+        Insert: {
+          acciones?: string | null
+          acciones_guarida?: string | null
+          acciones_legendarias?: string | null
+          alineamiento?: string | null
+          atributos?: Json | null
+          ca?: number | null
+          clase_arquetipo?: string | null
+          competencias?: string | null
+          contenido_completo?: string | null
+          created_at?: string
+          equipo?: string | null
+          facciones?: string | null
+          habilidades?: string | null
+          historia_lore?: string | null
+          hp?: string | null
+          id?: string
+          idiomas?: string | null
+          importancia?: string | null
+          localizacion?: string | null
+          mission_id?: string | null
+          motivaciones?: string | null
+          nivel?: string | null
+          nombre: string
+          rasgos_especiales?: string | null
+          raza?: string | null
+          reacciones?: string | null
+          resistencias_inmunidades?: string | null
+          rol?: string | null
+          secretos?: string | null
+          sentidos?: string | null
+          tags?: string[] | null
+          trasfondo?: string | null
+          updated_at?: string
+          user_id: string
+          velocidad?: string | null
+        }
+        Update: {
+          acciones?: string | null
+          acciones_guarida?: string | null
+          acciones_legendarias?: string | null
+          alineamiento?: string | null
+          atributos?: Json | null
+          ca?: number | null
+          clase_arquetipo?: string | null
+          competencias?: string | null
+          contenido_completo?: string | null
+          created_at?: string
+          equipo?: string | null
+          facciones?: string | null
+          habilidades?: string | null
+          historia_lore?: string | null
+          hp?: string | null
+          id?: string
+          idiomas?: string | null
+          importancia?: string | null
+          localizacion?: string | null
+          mission_id?: string | null
+          motivaciones?: string | null
+          nivel?: string | null
+          nombre?: string
+          rasgos_especiales?: string | null
+          raza?: string | null
+          reacciones?: string | null
+          resistencias_inmunidades?: string | null
+          rol?: string | null
+          secretos?: string | null
+          sentidos?: string | null
+          tags?: string[] | null
+          trasfondo?: string | null
+          updated_at?: string
+          user_id?: string
+          velocidad?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "npcs_mission_id_fkey"
+            columns: ["mission_id"]
             isOneToOne: false
             referencedRelation: "misiones"
             referencedColumns: ["id"]

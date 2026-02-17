@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
   Plus, LogOut, Wand2, Swords, Scroll, ChevronDown, ChevronRight,
-  Target, Users, Filter, Search,
+  Target, Users, Filter, Search, Theater, BookOpen,
 } from "lucide-react";
 import CreateMissionDialog from "@/components/CreateMissionDialog";
 import ContextPanel from "@/components/ContextPanel";
@@ -113,28 +113,28 @@ const MissionsDashboard = () => {
           <h1 className="font-display text-lg sm:text-2xl text-gold text-glow">
             Crónicas de Faerûn
           </h1>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => navigate("/encounter-generator")}
-              className="flex items-center gap-1.5 text-gold hover:text-gold-light transition-colors p-2"
-              title="Encuentros"
-            >
+          <div className="flex items-center gap-1 sm:gap-2">
+            <button onClick={() => navigate("/scene-generator")} className="flex items-center gap-1.5 text-gold hover:text-gold-light transition-colors p-2" title="Escenas">
+              <Theater size={18} />
+              <span className="text-xs font-display hidden sm:inline">Escenas</span>
+            </button>
+            <button onClick={() => navigate("/encounter-generator")} className="flex items-center gap-1.5 text-gold hover:text-gold-light transition-colors p-2" title="Encuentros">
               <Swords size={18} />
               <span className="text-xs font-display hidden sm:inline">Encuentros</span>
             </button>
-            <button
-              onClick={() => navigate("/generators")}
-              className="flex items-center gap-1.5 text-gold hover:text-gold-light transition-colors p-2"
-              title="Generadores"
-            >
-              <Wand2 size={18} />
-              <span className="text-xs font-display hidden sm:inline">Generadores</span>
+            <button onClick={() => navigate("/npc-generator")} className="flex items-center gap-1.5 text-gold hover:text-gold-light transition-colors p-2" title="PNJ">
+              <Users size={18} />
+              <span className="text-xs font-display hidden sm:inline">PNJ</span>
             </button>
-            <button
-              onClick={handleLogout}
-              className="text-muted-foreground hover:text-foreground transition-colors p-2"
-              title="Salir"
-            >
+            <button onClick={() => navigate("/generators")} className="flex items-center gap-1.5 text-gold hover:text-gold-light transition-colors p-2" title="Generadores">
+              <Wand2 size={18} />
+              <span className="text-xs font-display hidden sm:inline">Más</span>
+            </button>
+            <button onClick={() => navigate("/library")} className="flex items-center gap-1.5 text-gold hover:text-gold-light transition-colors p-2" title="Biblioteca">
+              <BookOpen size={18} />
+              <span className="text-xs font-display hidden sm:inline">Biblioteca</span>
+            </button>
+            <button onClick={handleLogout} className="text-muted-foreground hover:text-foreground transition-colors p-2" title="Salir">
               <LogOut size={18} />
             </button>
           </div>
