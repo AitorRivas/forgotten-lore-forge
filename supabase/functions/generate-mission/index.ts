@@ -2,152 +2,195 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAIWithFallback } from "../_shared/ai-provider.ts";
 
-const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version" };
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
 
-const SYSTEM_PROMPT = `Eres un motor profesional de generación narrativa para Dungeon Masters de Dungeons & Dragons 5e ambientado exclusivamente en Forgotten Realms.
+const SYSTEM_PROMPT = `Eres un motor profesional de generación narrativa para Dungeon Masters de D&D 5e ambientado EXCLUSIVAMENTE en Forgotten Realms (Reinos Olvidados).
 
-OBJETIVO: Generar contenido jugable, coherente, DIVERSO y estructurado para campañas reales.
+OBJETIVO: Generar MISIONES COMPLETAS como arcos narrativos listos para jugar en mesa. No sinopsis: narrativa detallada, modular y jugable.
 
 REGLAS CRÍTICAS:
 - Usa únicamente lore oficial de Forgotten Realms.
-- Mantén coherencia TOTAL con el contexto de campaña proporcionado.
-- Haz referencia a eventos previos, NPCs activos, antagonistas y conflictos abiertos.
-- Las nuevas misiones deben avanzar o complicar los conflictos existentes.
-- Respeta las decisiones del grupo y sus consecuencias.
-- Introduce nuevos elementos que complementen la narrativa sin contradecirla.
-- Cada misión DEBE incluir al menos dos de: intriga social/política, investigación, combate significativo, puzzle/desafío lógico, dilema moral, giro narrativo inesperado.
+- Adapta cultura, religión, facciones y política a la región seleccionada.
+- Cada misión DEBE incluir al menos dos de: intriga social/política, investigación, combate significativo, puzzle, dilema moral, giro inesperado.
+- NUNCA generes misiones lineales ni monotemáticas.
+- El tipo principal define el eje central, pero la misión siempre debe mezclar combate, escenas sociales, investigación y decisiones morales.
 
-=== CONTROL DE DIVERSIDAD Y VARIACIÓN (OBLIGATORIO) ===
-
-Recibirás un ANÁLISIS DE PATRONES que muestra qué se ha usado recientemente. DEBES:
-
-1. **VARIAR CONFLICTOS**: Si los conflictos recientes son militares, usa intriga política, traición interna, crisis religiosa, catástrofe natural, plaga mágica, o conflicto comercial. NUNCA repitas el mismo tipo de conflicto dos veces seguidas.
-
-2. **CAMBIAR DINÁMICAS SOCIALES**: Alterna entre aliados que se vuelven enemigos, dilemas sin "lado bueno", traiciones inesperadas, facciones neutrales forzadas, víctimas culpables / villanos con razones.
-
-3. **INTRODUCIR ELEMENTOS INESPERADOS**: Cada misión DEBE tener al menos un elemento que rompa expectativas.
-
-4. **EVITAR CLICHÉS REPETITIVOS**: PROHIBIDO repetir patrones consecutivos.
-
-5. **ROTAR TIPOS DE MISIÓN**: Alterna entre investigación, diplomacia, exploración, defensa, infiltración, supervivencia, heist, juicio, carrera contra el tiempo, espionaje.
-
-6. **VARIAR ANTAGONISTAS**: El nuevo antagonista DEBE ser de un tipo diferente al anterior.
-
-=== FIN CONTROL DE DIVERSIDAD ===
-
-FORMATO DE RESPUESTA (usa markdown):
+FORMATO DE RESPUESTA — OBLIGATORIO (usa markdown con estas secciones EXACTAS):
 
 ## 🗡️ [Título de la Misión]
 
-### 📜 Resumen
-[Resumen breve en 2-3 oraciones]
+### 📜 Contexto General
+[Situación actual de la región. Estado político/social/mágico. Facciones implicadas. Mínimo 3 párrafos.]
 
-### 🪝 Gancho Narrativo
-[Cómo los aventureros se enteran]
+### 💥 Detonante
+[Evento concreto que inicia la misión. Cómo se enteran los aventureros.]
 
-### 📍 Ubicación
-[Lugar específico en Forgotten Realms]
+### 🎭 Trama Central
+**Lo que parece estar ocurriendo:** [descripción]
+**Lo que realmente está ocurriendo:** [descripción]
+**Lo que permanece oculto:** [descripción]
 
-### 🎭 NPCs Clave
-[NPCs nuevos y existentes con detalles]
+### 📋 Actos / Fases
 
-### ⚔️ Encuentros
-[2-3 encuentros detallados]
+#### Fase 1: [Nombre]
+- **Objetivo:** [qué deben lograr]
+- **Obstáculo:** [qué se interpone]
+- **Posible giro:** [qué puede cambiar]
+- **Escenas sugeridas:** [2-3 escenas]
 
-### 🧩 Elementos Narrativos
-[Intriga, investigación, combate, puzzle, dilema moral, giro]
+#### Fase 2: [Nombre]
+- **Objetivo:** ...
+- **Obstáculo:** ...
+- **Posible giro:** ...
+- **Escenas sugeridas:** ...
+
+#### Fase 3: [Nombre]
+- **Objetivo:** ...
+- **Obstáculo:** ...
+- **Posible giro:** ...
+- **Escenas sugeridas:** ...
+
+### 🛤️ Posibles Enfoques de Resolución
+
+#### Enfoque 1: Resolución por Combate
+[Descripción detallada]
+
+#### Enfoque 2: Resolución Social/Diplomática
+[Descripción detallada]
+
+#### Enfoque 3: Resolución Estratégica/Indirecta
+[Descripción detallada]
+
+### 🔄 Giros Argumentales
+1. **[Giro 1]:** [Descripción coherente con el lore]
+2. **[Giro 2]:** [Descripción coherente con el lore]
+
+### ⚖️ Consecuencias
+**Si tienen éxito:** [consecuencias detalladas]
+**Si fracasan:** [consecuencias detalladas]
+**Si ignoran la misión:** [consecuencias detalladas]
+
+### 🔐 Secretos Ocultos
+- [Secreto 1 que el DM puede revelar gradualmente]
+- [Secreto 2]
+
+### ⚡ Eventos Dinámicos
+- [Evento que puede ocurrir durante la misión según las acciones del grupo]
+- [Evento 2]
+
+### 🎭 PNJ Clave
+[Nombre, rol, motivación y relación con la trama para cada PNJ. Mínimo 3.]
 
 ### 🏆 Recompensas
-[Tesoro, objetos mágicos, alianzas, información]
+- **Económicas:** [oro, gemas, etc.]
+- **Sociales:** [reputación, alianzas]
+- **Políticas:** [influencia, títulos]
+- **Objetos mágicos sugeridos:** [1-2 objetos apropiados al nivel]
 
-### 🔄 Consecuencias
-[Según decisiones — cómo afecta a conflictos]
-
-### 🔗 Conexiones con la Campaña
-[Conexiones con eventos previos]
-
-### 🎲 Variación Narrativa
-[Qué elementos nuevos introduces]
+### 📊 Riesgos de Escalada
+- [Qué pasa si los jugadores tardan demasiado]
+- [Cómo escala la amenaza]
 
 ### 📝 Notas para el DM
-[Consejos de interpretación]`;
-
-function analyzePatternsFromMissions(missions: any[]): string {
-  if (!missions || missions.length === 0) return "";
-  const patterns: string[] = [];
-  const titles = missions.map((m: any) => m.title).filter(Boolean);
-  if (titles.length > 0) patterns.push(`TÍTULOS RECIENTES:\n${titles.map((t: string) => `- "${t}"`).join("\n")}`);
-  const allContent = missions.map((m: any) => m.full_content || m.summary || "").join("\n").toLowerCase();
-  const detectedPatterns: string[] = [];
-  const antagonistTypes: Record<string, string[]> = { "nigromante/no-muertos": ["nigromante", "no-muerto", "zombi", "lich"], "dragón": ["dragón", "dragon", "wyrm"], "culto/secta": ["culto", "secta", "ritual oscuro"], "bandidos/criminales": ["bandido", "criminal", "asesino"], "demonio/diablo": ["demonio", "diablo", "infernal"], "hechicero/mago": ["hechicero", "mago", "archimago"], "político/noble": ["noble", "lord", "barón", "duque"] };
-  const usedTypes: string[] = [];
-  for (const [type, keywords] of Object.entries(antagonistTypes)) { if (keywords.some(k => allContent.includes(k))) usedTypes.push(type); }
-  if (usedTypes.length > 0) detectedPatterns.push(`Antagonistas usados: ${usedTypes.join(", ")}. USA TIPO DIFERENTE.`);
-  const structureTypes: Record<string, string[]> = { "rescate": ["rescata", "prisionero", "liberar"], "escolta": ["escolta", "caravana"], "caza": ["caza", "bestia", "guarida"], "investigación": ["investiga", "misterio"], "defensa": ["defender", "asedio"], "exploración": ["explora", "ruinas"], "diplomacia": ["negociar", "alianza"], "infiltración": ["infiltra", "espía"] };
-  const usedStructures: string[] = [];
-  for (const [type, keywords] of Object.entries(structureTypes)) { if (keywords.some(k => allContent.includes(k))) usedStructures.push(type); }
-  if (usedStructures.length > 0) detectedPatterns.push(`Estructuras usadas: ${usedStructures.join(", ")}. ELIGE DIFERENTE.`);
-  if (detectedPatterns.length > 0) patterns.push(`\nPATRONES — EVITA REPETIRLOS:\n${detectedPatterns.map(p => `⚠️ ${p}`).join("\n")}`);
-  return patterns.length > 0 ? `\n\n=== ANÁLISIS DE DIVERSIDAD ===\n${patterns.join("\n\n")}\n=== FIN ===` : "";
-}
+[Consejos de interpretación, ritmo, adaptación a diferentes estilos de grupo. Mínimo 3 consejos.]`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { campaignId, userId, customPrompt } = await req.json();
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL"); const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const { userId, ubicacion, tipo, nivelGrupo, tono, customPrompt, parentMissionId } = await req.json();
+
+    if (!ubicacion || !tipo) {
+      return new Response(
+        JSON.stringify({ error: "Ubicación y tipo de misión son obligatorios para la generación IA." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error("Database not configured");
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { data: campaign, error: campaignError } = await supabase.from("campaigns").select("*").eq("id", campaignId).single();
-    if (campaignError || !campaign) throw new Error("Campaña no encontrada");
 
-    const { data: missions } = await supabase.from("missions").select("title, summary, full_content").eq("campaign_id", campaignId).order("created_at", { ascending: false }).limit(10);
-    const { data: otherMissions } = await supabase.from("missions").select("title, summary").eq("user_id", userId).neq("campaign_id", campaignId).order("created_at", { ascending: false }).limit(5);
-    const { data: userContext } = await supabase.from("user_context").select("*").eq("user_id", userId).single();
+    // Fetch context: recent missions for diversity
+    let contextBlock = "";
+    const { data: recentMissions } = await supabase
+      .from("misiones")
+      .select("titulo, tipo, ubicacion_principal, conflicto_central")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(5);
 
-    const ctx = campaign.narrative_context || {};
-    let campaignContext = `\n\n=== CONTEXTO ===\nCampaña: "${campaign.name}"\nDescripción: ${campaign.description || "Sin descripción"}\nRegión: ${campaign.region || "Sin definir"}\nTono: ${campaign.tone || "épico"}\nNivel: ${campaign.level_range}\nActo: ${campaign.current_act || 1}`;
-    if (ctx.summary) campaignContext += `\n\nRESUMEN:\n${ctx.summary}`;
-    if (ctx.chapters?.length > 0) campaignContext += `\n\nCAPÍTULOS:\n${ctx.chapters.map((c: string, i: number) => `${i + 1}. ${c}`).join("\n")}`;
-    if (ctx.important_events?.length > 0) campaignContext += `\n\nEVENTOS:\n${ctx.important_events.map((e: string) => `- ${e}`).join("\n")}`;
-    if (ctx.known_antagonists?.length > 0) campaignContext += `\n\nANTAGONISTAS:\n${ctx.known_antagonists.map((a: string) => `- ${a}`).join("\n")}`;
-    if (ctx.active_npcs?.length > 0) campaignContext += `\n\nPNJs:\n${ctx.active_npcs.map((n: string) => `- ${n}`).join("\n")}`;
-    if (ctx.party_decisions?.length > 0) campaignContext += `\n\nDECISIONES:\n${ctx.party_decisions.map((d: string) => `- ${d}`).join("\n")}`;
-    if (ctx.open_conflicts?.length > 0) campaignContext += `\n\nCONFLICTOS:\n${ctx.open_conflicts.map((c: string) => `- ${c}`).join("\n")}`;
-    if (ctx.narrative_memory?.length > 0) campaignContext += `\n\nMEMORIA:\n${ctx.narrative_memory.slice(-5).map((m: string) => `- ${m}`).join("\n")}`;
-    if (ctx.plot_hooks_pending?.length > 0) campaignContext += `\n\nGANCHOS:\n${ctx.plot_hooks_pending.map((h: string) => `- ${h}`).join("\n")}`;
-    if (ctx.regions_explored?.length > 0) campaignContext += `\n\nREGIONES: ${ctx.regions_explored.join(", ")}`;
-    if (missions && missions.length > 0) { campaignContext += `\n\nMISIONES ANTERIORES:\n`; missions.forEach((m: any, i: number) => { campaignContext += `${i + 1}. ${m.title}${m.summary ? ` — ${m.summary}` : ""}\n`; }); }
-    if (userContext) {
-      const recentStyles = (userContext.narrative_styles || []).slice(-5);
-      if (recentStyles.length > 0) campaignContext += `\n\nESTILOS RECIENTES: ${recentStyles.join(", ")}`;
-      const recentThemes = (userContext.recent_themes || []).slice(-5);
-      if (recentThemes.length > 0) campaignContext += `\n\nTEMAS RECIENTES: ${recentThemes.join(", ")}`;
+    if (recentMissions && recentMissions.length > 0) {
+      contextBlock += "\n\n=== MISIONES RECIENTES (EVITA REPETIR PATRONES) ===\n";
+      recentMissions.forEach((m: any) => {
+        contextBlock += `- ${m.titulo || "Sin título"} | Tipo: ${m.tipo || "?"} | Ubicación: ${m.ubicacion_principal || "?"} | Conflicto: ${m.conflicto_central || "?"}\n`;
+      });
+      contextBlock += "=== FIN ===";
     }
-    if (otherMissions && otherMissions.length > 0) { campaignContext += `\n\nMISIONES OTRAS CAMPAÑAS:\n`; otherMissions.forEach((m: any) => { campaignContext += `- ${m.title}\n`; }); }
-    campaignContext += `\n=== FIN CONTEXTO ===`;
 
-    const diversityAnalysis = analyzePatternsFromMissions(missions || []);
-    let userPrompt = `Genera la siguiente misión para esta campaña. Recuerda: la DIVERSIDAD es obligatoria.`;
-    if (customPrompt) userPrompt += `\n\nINSTRUCCIONES DEL DM:\n${customPrompt}`;
-    userPrompt += campaignContext + diversityAnalysis;
+    // If parent mission, fetch its context
+    if (parentMissionId) {
+      const { data: parent } = await supabase
+        .from("misiones")
+        .select("titulo, descripcion, ubicacion_principal, conflicto_central, trama_detallada")
+        .eq("id", parentMissionId)
+        .single();
+      if (parent) {
+        contextBlock += `\n\n=== MISIÓN PADRE (esta es una submisión) ===\nTítulo: ${parent.titulo}\nDescripción: ${parent.descripcion || ""}\nUbicación: ${parent.ubicacion_principal || ""}\nConflicto: ${parent.conflicto_central || ""}\nTrama: ${(parent.trama_detallada || "").slice(0, 500)}\n=== FIN ===`;
+      }
+    }
+
+    // User context
+    const { data: userContext } = await supabase
+      .from("user_context")
+      .select("recent_themes, regions_used, narrative_styles")
+      .eq("user_id", userId)
+      .single();
+
+    if (userContext) {
+      const themes = (userContext.recent_themes || []).slice(-5);
+      const regions = (userContext.regions_used || []).slice(-5);
+      if (themes.length > 0) contextBlock += `\nTemas recientes: ${themes.join(", ")}`;
+      if (regions.length > 0) contextBlock += `\nRegiones usadas: ${regions.join(", ")}`;
+    }
+
+    let userPrompt = `Genera una misión completa con los siguientes parámetros:
+
+TIPO DE MISIÓN: ${tipo}
+UBICACIÓN: ${ubicacion}
+NIVEL DEL GRUPO: ${nivelGrupo || "1-5"}
+TONO: ${tono || "épico"}
+
+La misión debe ser un arco narrativo completo listo para jugar. NO una sinopsis. Incluye TODAS las secciones del formato obligatorio.`;
+
+    if (customPrompt) userPrompt += `\n\nINSTRUCCIONES ADICIONALES DEL DM:\n${customPrompt}`;
+    userPrompt += contextBlock;
 
     const aiResult = await callAIWithFallback(
       [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userPrompt }],
-      { model: "gemini-2.5-pro", stream: true }
+      { model: "gemini-2.5-pro", stream: true, userId }
     );
 
     if (!aiResult) {
-      return new Response(JSON.stringify({ error: "Ambos servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({ error: "Los servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    return new Response(aiResult.response.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "X-AI-Provider": aiResult.provider } });
+    return new Response(aiResult.response.body, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream", "X-AI-Provider": aiResult.provider },
+    });
   } catch (e) {
     console.error("generate-mission error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Error desconocido" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(
+      JSON.stringify({ error: e instanceof Error ? e.message : "Error desconocido" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
