@@ -6,34 +6,47 @@ import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import {
   ArrowLeft, Swords, Loader2, Save, Pencil, Eye, Users, Shield,
-  Skull, Flame, Zap, Target, MapPin, RefreshCw, X, Link2,
+  Skull, Flame, Zap, Target, MapPin, RefreshCw, X, Link2, Plus, Trash2,
 } from "lucide-react";
 
-type Difficulty = "easy" | "medium" | "hard" | "deadly";
+type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
+
+interface PartyMember {
+  id: string;
+  className: string;
+  level: number;
+}
 
 interface Campaign {
   id: string;
   name: string;
 }
 
-const DIFFICULTIES: { value: Difficulty; label: string; icon: React.ElementType; color: string; desc: string }[] = [
-  { value: "easy", label: "Fácil", icon: Shield, color: "text-green-400", desc: "Encuentro rutinario, poco riesgo" },
-  { value: "medium", label: "Medio", icon: Target, color: "text-yellow-400", desc: "Desafío equilibrado" },
-  { value: "hard", label: "Difícil", icon: Flame, color: "text-orange-400", desc: "Alto riesgo, posibles bajas" },
-  { value: "deadly", label: "Letal", icon: Skull, color: "text-red-400", desc: "Extremadamente peligroso" },
+const CLASSES_5E = [
+  "Bárbaro", "Bardo", "Clérigo", "Druida", "Explorador", "Guerrero",
+  "Hechicero", "Mago", "Monje", "Paladín", "Pícaro", "Brujo", "Artífice",
 ];
+
+const DIFFICULTY_LABELS: Record<DifficultyLevel, { label: string; color: string }> = {
+  1: { label: "Fácil", color: "text-green-400" },
+  2: { label: "Moderado", color: "text-yellow-400" },
+  3: { label: "Desafiante", color: "text-amber-400" },
+  4: { label: "Difícil", color: "text-orange-400" },
+  5: { label: "Mortal", color: "text-red-400" },
+};
 
 const EncounterGenerator = () => {
   const navigate = useNavigate();
 
-  // Form state
-  const [partySize, setPartySize] = useState(4);
-  const [partyLevel, setPartyLevel] = useState("5");
-  const [difficulty, setDifficulty] = useState<Difficulty>("medium");
+  // Party composition
+  const [partyMembers, setPartyMembers] = useState<PartyMember[]>([
+    { id: crypto.randomUUID(), className: "Guerrero", level: 5 },
+  ]);
+  const [difficultyLevel, setDifficultyLevel] = useState<DifficultyLevel>(3);
   const [encounterTheme, setEncounterTheme] = useState("");
   const [specificRequest, setSpecificRequest] = useState("");
   const [region, setRegion] = useState("Costa de la Espada");
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
+  const [selectedCampaignId, setSelectedCampaignId] = useState("");
 
   // UI state
   const [generating, setGenerating] = useState(false);
@@ -42,6 +55,23 @@ const EncounterGenerator = () => {
   const [editMode, setEditMode] = useState(false);
   const [editedContent, setEditedContent] = useState("");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+
+  const avgLevel = partyMembers.length
+    ? Math.round(partyMembers.reduce((sum, m) => sum + m.level, 0) / partyMembers.length * 10) / 10
+    : 0;
+
+  const addMember = () => {
+    setPartyMembers((prev) => [...prev, { id: crypto.randomUUID(), className: "Guerrero", level: Math.round(avgLevel) || 1 }]);
+  };
+
+  const removeMember = (id: string) => {
+    if (partyMembers.length <= 1) return;
+    setPartyMembers((prev) => prev.filter((m) => m.id !== id));
+  };
+
+  const updateMember = (id: string, field: keyof Omit<PartyMember, "id">, value: string | number) => {
+    setPartyMembers((prev) => prev.map((m) => m.id === id ? { ...m, [field]: value } : m));
+  };
 
   useEffect(() => {
     const fetchCampaigns = async () => {
@@ -161,10 +191,12 @@ const EncounterGenerator = () => {
     setEditMode(false);
 
     try {
+      const partyDesc = partyMembers.map((m) => `${m.className} nivel ${m.level}`).join(", ");
+      const diffLabel = DIFFICULTY_LABELS[difficultyLevel].label;
       const body = {
         region,
         tone: "épico",
-        partyLevel: `${partyLevel} (${partySize} jugadores, dificultad ${difficulty})`,
+        partyLevel: `Grupo: ${partyDesc}. Nivel promedio ${avgLevel}, ${partyMembers.length} jugadores, dificultad ${diffLabel}`,
         encounterTheme: encounterTheme || undefined,
         specificRequest: specificRequest || undefined,
       };
@@ -194,7 +226,7 @@ const EncounterGenerator = () => {
     } finally {
       setGenerating(false);
     }
-  }, [region, partyLevel, partySize, difficulty, encounterTheme, specificRequest]);
+  }, [region, partyMembers, avgLevel, difficultyLevel, encounterTheme, specificRequest]);
 
   const saveEncounter = useCallback(async () => {
     if (!encounter) return;
@@ -262,81 +294,101 @@ const EncounterGenerator = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left panel - Form */}
           <div className="lg:col-span-1 space-y-5">
-            {/* Party info */}
+            {/* Party composition */}
             <div className="ornate-border rounded-lg p-5 parchment-bg">
               <h3 className="font-display text-lg text-gold flex items-center gap-2 mb-4">
                 <Users size={18} /> Grupo de Jugadores
               </h3>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm text-muted-foreground block mb-1">Número de jugadores</label>
-                  <div className="flex items-center gap-3">
-                    {[2, 3, 4, 5, 6].map((n) => (
-                      <button
-                        key={n}
-                        onClick={() => setPartySize(n)}
-                        className={`w-10 h-10 rounded font-display text-sm transition-colors ${
-                          partySize === n
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-secondary text-foreground hover:border-gold/50 border border-border"
-                        }`}
-                      >
-                        {n}
-                      </button>
-                    ))}
+              <div className="space-y-3">
+                {partyMembers.map((member, idx) => (
+                  <div key={member.id} className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-5 shrink-0">{idx + 1}.</span>
+                    <select
+                      value={member.className}
+                      onChange={(e) => updateMember(member.id, "className", e.target.value)}
+                      className="flex-1 bg-secondary border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-gold transition-colors"
+                    >
+                      {CLASSES_5E.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={member.level}
+                      onChange={(e) => updateMember(member.id, "level", Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+                      className="w-16 bg-secondary border border-border rounded px-2 py-1.5 text-sm text-foreground text-center focus:outline-none focus:border-gold transition-colors"
+                    />
+                    <button
+                      onClick={() => removeMember(member.id)}
+                      disabled={partyMembers.length <= 1}
+                      className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-30"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-                </div>
+                ))}
 
-                <div>
-                  <label className="text-sm text-muted-foreground block mb-1">Nivel del grupo</label>
-                  <input
-                    type="text"
-                    value={partyLevel}
-                    onChange={(e) => setPartyLevel(e.target.value)}
-                    placeholder="Ej: 5, 3-5, 10"
-                    className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold transition-colors"
-                  />
-                </div>
+                <button
+                  onClick={addMember}
+                  className="w-full flex items-center justify-center gap-1.5 border border-dashed border-border rounded py-2 text-xs text-muted-foreground hover:text-gold hover:border-gold/40 transition-colors"
+                >
+                  <Plus size={14} /> Añadir personaje
+                </button>
+              </div>
 
-                <div>
-                  <label className="text-sm text-muted-foreground block mb-1">Región</label>
-                  <input
-                    type="text"
-                    value={region}
-                    onChange={(e) => setRegion(e.target.value)}
-                    placeholder="Costa de la Espada"
-                    className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold transition-colors"
-                  />
-                </div>
+              {/* Summary */}
+              <div className="mt-4 pt-3 border-t border-border flex justify-between text-xs">
+                <span className="text-muted-foreground">
+                  <strong className="text-foreground">{partyMembers.length}</strong> personaje{partyMembers.length !== 1 ? "s" : ""}
+                </span>
+                <span className="text-muted-foreground">
+                  Nivel promedio: <strong className="text-gold">{avgLevel}</strong>
+                </span>
+              </div>
+
+              {/* Region */}
+              <div className="mt-4">
+                <label className="text-sm text-muted-foreground block mb-1">Región</label>
+                <input
+                  type="text"
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                  placeholder="Costa de la Espada"
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold transition-colors"
+                />
               </div>
             </div>
 
-            {/* Difficulty */}
+            {/* Difficulty scale 1-5 */}
             <div className="ornate-border rounded-lg p-5 parchment-bg">
               <h3 className="font-display text-lg text-gold flex items-center gap-2 mb-4">
                 <Zap size={18} /> Dificultad
               </h3>
-              <div className="grid grid-cols-2 gap-2">
-                {DIFFICULTIES.map((d) => {
-                  const Icon = d.icon;
+              <div className="flex gap-1.5">
+                {([1, 2, 3, 4, 5] as DifficultyLevel[]).map((lvl) => {
+                  const { label, color } = DIFFICULTY_LABELS[lvl];
                   return (
                     <button
-                      key={d.value}
-                      onClick={() => setDifficulty(d.value)}
-                      className={`flex flex-col items-center gap-1 p-3 rounded border transition-all text-center ${
-                        difficulty === d.value
+                      key={lvl}
+                      onClick={() => setDifficultyLevel(lvl)}
+                      className={`flex-1 flex flex-col items-center gap-1 py-3 rounded border transition-all ${
+                        difficultyLevel === lvl
                           ? "border-gold/60 bg-secondary"
                           : "border-border hover:border-gold/30"
                       }`}
                     >
-                      <Icon size={20} className={d.color} />
-                      <span className="font-display text-xs text-foreground">{d.label}</span>
-                      <span className="text-[10px] text-muted-foreground leading-tight">{d.desc}</span>
+                      <span className={`font-display text-lg ${color}`}>{lvl}</span>
+                      <span className="text-[10px] text-muted-foreground leading-tight">{label}</span>
                     </button>
                   );
                 })}
               </div>
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                Seleccionado: <strong className={DIFFICULTY_LABELS[difficultyLevel].color}>{DIFFICULTY_LABELS[difficultyLevel].label}</strong>
+              </p>
             </div>
 
             {/* Theme & details */}
