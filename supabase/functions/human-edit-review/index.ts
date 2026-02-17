@@ -15,8 +15,8 @@ serve(async (req) => {
     if (!original_text || !edited_text) return new Response(JSON.stringify({ error: "original_text and edited_text are required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     if (original_text.length > 50000 || edited_text.length > 50000) return new Response(JSON.stringify({ error: "Text too long" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     let analysis: any = null;
-    const aiResponse = await callAIWithFallback([{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: `ORIGINAL:\n\n${original_text}\n\n---\n\nEDITADO:\n\n${edited_text}` }]);
-    if (aiResponse) { const aiData = await aiResponse.json(); const raw = aiData.choices?.[0]?.message?.content || ""; const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim(); try { analysis = JSON.parse(cleaned); } catch { analysis = { summary: "No se pudo analizar.", changes_detected: [], coherence_issues: [], narrative_updates: {}, improvement_suggestions: [] }; } }
+    const aiResult = await callAIWithFallback([{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: `ORIGINAL:\n\n${original_text}\n\n---\n\nEDITADO:\n\n${edited_text}` }]);
+    if (aiResult) { const aiData = await aiResult.response.json(); const raw = aiData.choices?.[0]?.message?.content || ""; const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim(); try { analysis = JSON.parse(cleaned); } catch { analysis = { summary: "No se pudo analizar.", changes_detected: [], coherence_issues: [], narrative_updates: {}, improvement_suggestions: [] }; } }
     if (content_id) await supabase.from("generated_content").update({ editable_text: edited_text, updated_at: new Date().toISOString() }).eq("id", content_id).eq("user_id", user.id);
     if (campaign_id && analysis?.narrative_updates) {
       const nu = analysis.narrative_updates;

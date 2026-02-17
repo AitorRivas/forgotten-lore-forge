@@ -10,9 +10,9 @@ serve(async (req) => {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error("Database not configured");
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const extractionPrompt = `Analiza esta misión de D&D y extrae información estructurada. MISIÓN:\n${missionContent}\n\nResponde SOLO JSON: {"location":"lugar","location_type":"tipo","narrative_style":"estilo","mission_type":"tipo","antagonist_type":"tipo","dominant_theme":"tema","new_npcs":["nombre - desc"],"new_antagonists":["nombre - desc"],"new_events":["evento"],"new_conflicts":["conflicto"],"plot_hooks":["gancho"],"narrative_memory":"resumen","chapter_summary":"resumen capítulo"}`;
-    const aiResponse = await callAIWithFallback([{ role: "system", content: "Extrae datos estructurados. Responde SOLO JSON." }, { role: "user", content: extractionPrompt }], { model: "gemini-2.5-flash" });
+    const aiResult = await callAIWithFallback([{ role: "system", content: "Extrae datos estructurados. Responde SOLO JSON." }, { role: "user", content: extractionPrompt }], { model: "gemini-2.5-flash" });
     let extracted: any = {};
-    if (aiResponse) { const aiData = await aiResponse.json(); const raw = aiData.choices?.[0]?.message?.content || "{}"; const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim(); try { extracted = JSON.parse(cleaned); } catch { console.error("Failed to parse extraction"); } }
+    if (aiResult) { const aiData = await aiResult.response.json(); const raw = aiData.choices?.[0]?.message?.content || "{}"; const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim(); try { extracted = JSON.parse(cleaned); } catch { console.error("Failed to parse extraction"); } }
     const { data: campaign } = await supabase.from("campaigns").select("narrative_context").eq("id", campaignId).single();
     const ctx = campaign?.narrative_context || { summary: "", chapters: [], important_events: [], known_antagonists: [], active_npcs: [], party_decisions: [], open_conflicts: [], narrative_memory: [], regions_explored: [], loot_given: [], plot_hooks_pending: [] };
     if (extracted.chapter_summary) ctx.chapters = [...(ctx.chapters || []), extracted.chapter_summary].slice(-20);

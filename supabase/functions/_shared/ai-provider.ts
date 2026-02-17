@@ -255,14 +255,22 @@ async function tryWithRetry(
 //  callAIWithFallback — LOW LEVEL (raw messages)
 // ══════════════════════════════════════════════════════════
 
+/** Result with provider metadata for UI indicators */
+export interface AIResult {
+  response: Response;
+  provider: "primary" | "alternative";
+  /** User-friendly provider label (no technical details) */
+  providerLabel: string;
+}
+
 /**
  * Llama a la IA con sistema de fallback triple y logging de errores.
- * Envía los messages tal cual al proveedor. Para uso estandarizado, usar generateWithFallback.
+ * Returns AIResult with provider info, or null if all fail.
  */
 export async function callAIWithFallback(
   messages: any[],
   options: AIProviderOptions = {},
-): Promise<Response | null> {
+): Promise<AIResult | null> {
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   const userId = options.userId;
@@ -284,7 +292,7 @@ export async function callAIWithFallback(
     );
     if (resp) {
       recordProviderSuccess("Gemini Direct");
-      return resp;
+      return { response: resp, provider: "primary", providerLabel: "Gemini Pro" };
     }
     recordProviderFailure("Gemini Direct");
   }
@@ -299,7 +307,7 @@ export async function callAIWithFallback(
     );
     if (resp) {
       recordProviderSuccess("ChatGPT (Gateway)");
-      return resp;
+      return { response: resp, provider: "alternative", providerLabel: "ChatGPT" };
     }
     recordProviderFailure("ChatGPT (Gateway)");
   }
@@ -313,7 +321,7 @@ export async function callAIWithFallback(
     );
     if (resp) {
       recordProviderSuccess("Lovable Native");
-      return resp;
+      return { response: resp, provider: "alternative", providerLabel: "IA Nativa" };
     }
     recordProviderFailure("Lovable Native");
   }
@@ -344,7 +352,7 @@ export async function generateWithFallback(
   systemPrompt: string,
   userPrompt: string,
   metadata: GenerationMetadata = { contentType: "generic" },
-): Promise<Response | null> {
+): Promise<AIResult | null> {
   // ── Build standardized system prompt ──
   const standardizedSystem = buildStandardizedSystemPrompt(systemPrompt, metadata);
   const standardizedUser = buildStandardizedUserPrompt(userPrompt, metadata);

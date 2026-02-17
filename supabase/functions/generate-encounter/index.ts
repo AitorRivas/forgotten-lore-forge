@@ -355,6 +355,7 @@ IMPORTANTE: Selecciona criaturas que sean coherentes con esta región, su clima,
     const maxAttempts = 3;
     let encounterMd = "";
     let validation: ValidationResult | null = null;
+    let providerInfo: "primary" | "alternative" = "primary";
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       let userPrompt = baseUserPrompt;
@@ -389,18 +390,21 @@ INSTRUCCIONES DE CORRECCIÓN:
 
       console.log(`[generate-encounter] Attempt ${attempt + 1}/${maxAttempts}`);
 
-      const response = await callAI(
+      const aiResult = await callAI(
         [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
         { temperature: attempt === 0 ? 0.8 : 0.5 }
       );
 
-      if (!response) {
+      if (!aiResult) {
         return new Response(JSON.stringify({ error: "Los servicios de IA están saturados. Intenta en unos segundos." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const data = await response.json();
+      // Track which provider was used (last successful one wins)
+      providerInfo = aiResult.provider;
+
+      const data = await aiResult.response.json();
       encounterMd = data.choices?.[0]?.message?.content || "";
 
       // Parse and validate
@@ -429,7 +433,12 @@ INSTRUCCIONES DE CORRECCIÓN:
       encounterMd += badge;
     }
 
-    return new Response(JSON.stringify({ encounter_markdown: encounterMd, userId, validation }), {
+    return new Response(JSON.stringify({ 
+      encounter_markdown: encounterMd, 
+      userId, 
+      validation,
+      provider: providerInfo === "primary" ? "primary" : "alternative",
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 

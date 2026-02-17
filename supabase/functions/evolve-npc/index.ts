@@ -56,17 +56,17 @@ MEMORIA NARRATIVA:\n${JSON.stringify(narrativeContext || {}, null, 2)}
 
 Genera evoluciones narrativas realistas y coherentes para estos PNJs.`;
 
-    const response = await callAIWithFallback(
+    const aiResult = await callAIWithFallback(
       [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
       { model: "gemini-2.5-pro", temperature: 0.8, response_mime_type: "application/json" }
     );
 
-    if (!response) {
+    if (!aiResult) {
       return new Response(JSON.stringify({ error: "Ambos servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const data = await response.json();
+    const data = await aiResult.response.json();
     const content = data.choices?.[0]?.message?.content;
     let evolution;
     try { evolution = JSON.parse(content); } catch { evolution = { raw: content, parse_error: true }; }

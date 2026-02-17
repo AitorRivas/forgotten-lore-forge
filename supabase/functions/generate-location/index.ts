@@ -68,7 +68,7 @@ serve(async (req) => {
     if (specificRequest) userPrompt += `\nPETICIÓN ESPECÍFICA: ${specificRequest}`;
     if (narrativeContext) userPrompt += `\nMEMORIA NARRATIVA:\n${JSON.stringify(narrativeContext)}`;
 
-    const response = await generateWithFallback(SYSTEM_PROMPT, userPrompt, {
+    const aiResult = await generateWithFallback(SYSTEM_PROMPT, userPrompt, {
       contentType: "location",
       outputFormat: "json",
       jsonSchema: JSON_SCHEMA,
@@ -79,12 +79,12 @@ serve(async (req) => {
       temperature: 0.85,
     });
 
-    if (!response) {
+    if (!aiResult) {
       return new Response(JSON.stringify({ error: "Los servicios de IA están saturados. Espera unos segundos." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const data = await response.json();
+    const data = await aiResult.response.json();
     const content = data.choices?.[0]?.message?.content || "";
     const location = parseAIJsonResponse(content, { raw: content, parse_error: true });
 

@@ -78,18 +78,18 @@ ${encounterText}
 
 Analiza el equilibrio, verifica CRs y XP, y sugiere ajustes si es necesario.`;
 
-    const response = await callAI(
+    const aiResult = await callAI(
       [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
       { temperature: 0.4 }
     );
 
-    if (!response) {
+    if (!aiResult) {
       return new Response(JSON.stringify({ error: "Los servicios de IA están saturados. Intenta en unos segundos." }), {
         status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const data = await response.json();
+    const data = await aiResult.response.json();
     const content = data.choices?.[0]?.message?.content || "";
 
     return new Response(JSON.stringify({ validation_markdown: content }), {
