@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callAIWithFallback } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,60 +7,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-async function callAIWithFallback(messages: any[], options: { model?: string; stream?: boolean; temperature?: number; response_mime_type?: string } = {}) {
-  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  const geminiModel = options.model || "gemini-2.5-pro";
-  const lovableModel = `google/${geminiModel}`;
-  const body: any = { model: geminiModel, messages };
-  if (options.stream) body.stream = true;
-  if (options.temperature !== undefined) body.temperature = options.temperature;
-  if (options.response_mime_type) body.response_mime_type = options.response_mime_type;
-
-  // 1) Try Gemini direct
-  if (GEMINI_API_KEY) {
-    try {
-      const resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (resp.ok) return resp;
-      if (resp.status === 429) console.log("Gemini rate limited, trying Lovable AI (Google)...");
-      else console.error("Gemini error:", resp.status, await resp.text());
-    } catch (e) { console.error("Gemini fetch error:", e); }
-  }
-
-  // 2) Fallback: Lovable AI with Google model
-  if (LOVABLE_API_KEY) {
-    try {
-      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body, model: lovableModel }),
-      });
-      if (resp.ok) return resp;
-      if (resp.status === 429 || resp.status === 402) console.log("Lovable AI (Google) unavailable, trying ChatGPT...");
-      else console.error("Lovable AI (Google) error:", resp.status, await resp.text());
-    } catch (e) { console.error("Lovable AI fetch error:", e); }
-  }
-
-  // 3) Final fallback: Lovable AI with OpenAI ChatGPT model
-  if (LOVABLE_API_KEY) {
-    const chatgptModel = geminiModel.includes("flash") ? "openai/gpt-5-mini" : "openai/gpt-5";
-    try {
-      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body, model: chatgptModel }),
-      });
-      if (resp.ok) return resp;
-      console.error("ChatGPT fallback error:", resp.status, await resp.text());
-    } catch (e) { console.error("ChatGPT fetch error:", e); }
-  }
-
-  return null;
-}
 
 const SYSTEM_PROMPT = `Eres un experto creador de Personajes No Jugadores (PNJs/NPCs) para Dungeons & Dragons 5e en Forgotten Realms.
 

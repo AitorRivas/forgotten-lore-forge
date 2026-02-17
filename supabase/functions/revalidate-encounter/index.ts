@@ -1,41 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callAIWithFallback as callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-async function callAI(messages: any[], options: { temperature?: number } = {}) {
-  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  const model = "gemini-2.5-flash";
-  const body: any = { model, messages, temperature: options.temperature ?? 0.4 };
-
-  if (GEMINI_API_KEY) {
-    try {
-      const resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (resp.ok) return resp;
-      if (resp.status === 429) console.log("Gemini rate limited, falling back...");
-    } catch (e) { console.error("Gemini fetch error:", e); }
-  }
-
-  if (LOVABLE_API_KEY) {
-    try {
-      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body, model: `google/${model}` }),
-      });
-      if (resp.ok) return resp;
-    } catch (e) { console.error("Lovable AI error:", e); }
-  }
-
-  return null;
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });

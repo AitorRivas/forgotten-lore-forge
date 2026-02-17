@@ -1,43 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callAIWithFallback as callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-async function callAI(messages: any[], options: { temperature?: number; model?: string } = {}) {
-  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  const model = options.model || "gemini-2.5-pro";
-  const body: any = { model, messages, temperature: options.temperature ?? 0.8 };
-
-  if (GEMINI_API_KEY) {
-    try {
-      const resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (resp.ok) return resp;
-      if (resp.status === 429) console.log("Gemini rate limited, falling back...");
-      else console.error("Gemini error:", resp.status);
-    } catch (e) { console.error("Gemini fetch error:", e); }
-  }
-
-  if (LOVABLE_API_KEY) {
-    try {
-      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body, model: `google/${model}` }),
-      });
-      if (resp.ok) return resp;
-    } catch (e) { console.error("Lovable AI error:", e); }
-  }
-
-  return null;
-}
 
 // ── XP thresholds per character level (DMG p.82) ──
 const XP_THRESHOLDS: Record<number, { easy: number; medium: number; hard: number; deadly: number }> = {
