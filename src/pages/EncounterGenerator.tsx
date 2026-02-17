@@ -25,10 +25,9 @@ interface PartyMember {
   level: number;
 }
 
-interface Campaign {
+interface MisionOption {
   id: string;
-  name: string;
-  region: string | null;
+  titulo: string;
 }
 
 const CLASSES_5E = [
@@ -55,7 +54,14 @@ const EncounterGenerator = () => {
   const [encounterTheme, setEncounterTheme] = useState("");
   const [specificRequest, setSpecificRequest] = useState("");
   const [region, setRegion] = useState("Costa de la Espada");
-  const [selectedCampaignId, setSelectedCampaignId] = useState("");
+  const [selectedMissionId, setSelectedMissionId] = useState("");
+
+  // Read missionId from URL params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mId = params.get("missionId");
+    if (mId) setSelectedMissionId(mId);
+  }, []);
 
   // UI state
   const [generating, setGenerating] = useState(false);
@@ -68,7 +74,7 @@ const EncounterGenerator = () => {
   const [validationResult, setValidationResult] = useState<string | null>(null);
   const [providerType, setProviderType] = useState<"primary" | "alternative" | null>(null);
   const [serviceUnavailable, setServiceUnavailable] = useState(false);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [misiones, setMisiones] = useState<MisionOption[]>([]);
 
   const avgLevel = partyMembers.length
     ? Math.round(partyMembers.reduce((sum, m) => sum + m.level, 0) / partyMembers.length * 10) / 10
@@ -88,22 +94,12 @@ const EncounterGenerator = () => {
   };
 
   useEffect(() => {
-    const fetchCampaigns = async () => {
-      const { data } = await supabase.from("campaigns").select("id, name, region").order("name");
-      if (data) setCampaigns(data);
+    const fetchMisiones = async () => {
+      const { data } = await supabase.from("misiones").select("id, titulo").order("titulo");
+      if (data) setMisiones(data);
     };
-    fetchCampaigns();
+    fetchMisiones();
   }, []);
-
-  // Auto-detect region from selected campaign
-  const activeCampaign = useMemo(() => campaigns.find((c) => c.id === selectedCampaignId), [campaigns, selectedCampaignId]);
-  const campaignHasRegion = !!(activeCampaign?.region);
-
-  useEffect(() => {
-    if (activeCampaign?.region) {
-      setRegion(activeCampaign.region);
-    }
-  }, [activeCampaign]);
 
   // Build flat region list for dropdown
   const regionOptions = useMemo(() => {
@@ -219,7 +215,7 @@ const EncounterGenerator = () => {
         region,
         encounterTheme: encounterTheme || undefined,
         specificRequest: specificRequest || undefined,
-        campaignId: selectedCampaignId || undefined,
+        missionId: selectedMissionId || undefined,
         userId: user?.id,
       };
 
@@ -253,7 +249,7 @@ const EncounterGenerator = () => {
     } finally {
       setGenerating(false);
     }
-  }, [region, partyMembers, avgLevel, difficultyLevel, encounterTheme, specificRequest, selectedCampaignId]);
+  }, [region, partyMembers, avgLevel, difficultyLevel, encounterTheme, specificRequest, selectedMissionId]);
 
   const saveEncounter = useCallback(async () => {
     if (!encounter) return;
@@ -286,7 +282,7 @@ const EncounterGenerator = () => {
         // Insert new record
         const { data, error } = await supabase.from("encounters" as any).insert({
           user_id: user.id,
-          campaign_id: selectedCampaignId || null,
+          mission_id: selectedMissionId || null,
           tipo: "encuentro",
           nivel_grupo: avgLevel,
           numero_personajes: partyMembers.length,
@@ -305,8 +301,8 @@ const EncounterGenerator = () => {
           setEditMode(false);
         }
         toast.success(
-          selectedCampaignId
-            ? "¡Encuentro guardado y vinculado a la campaña!"
+          selectedMissionId
+            ? "¡Encuentro guardado y vinculado a la misión!"
             : "¡Encuentro guardado en tu biblioteca!"
         );
       }
@@ -315,7 +311,7 @@ const EncounterGenerator = () => {
     } finally {
       setSaving(false);
     }
-  }, [encounter, editMode, editedContent, selectedCampaignId, avgLevel, partyMembers, difficultyLevel, region, encounterTheme, specificRequest, savedEncounterId]);
+  }, [encounter, editMode, editedContent, selectedMissionId, avgLevel, partyMembers, difficultyLevel, region, encounterTheme, specificRequest, savedEncounterId]);
 
   const revalidateBalance = useCallback(async () => {
     const content = editMode ? editedContent : encounter;
@@ -440,24 +436,16 @@ const EncounterGenerator = () => {
 
               {/* Region */}
               <div className="mt-4">
-                <label className="text-sm text-muted-foreground block mb-1">
-                  Región {campaignHasRegion && <span className="text-gold text-xs">(de campaña)</span>}
-                </label>
-                {campaignHasRegion ? (
-                  <div className="w-full bg-secondary/50 border border-gold/30 rounded px-3 py-2 text-sm text-gold">
-                    {region}
-                  </div>
-                ) : (
-                  <select
-                    value={region}
-                    onChange={(e) => setRegion(e.target.value)}
-                    className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold transition-colors"
-                  >
-                    {regionOptions.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
-                )}
+                <label className="text-sm text-muted-foreground block mb-1">Región</label>
+                <select
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold transition-colors"
+                >
+                  {regionOptions.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -519,19 +507,19 @@ const EncounterGenerator = () => {
               </div>
             </div>
 
-            {/* Campaign link */}
+            {/* Mission link */}
             <div className="ornate-border rounded-lg p-5 parchment-bg">
               <h3 className="font-display text-lg text-gold flex items-center gap-2 mb-3">
-                <Link2 size={18} /> Vincular a Campaña
+                <Link2 size={18} /> Vincular a Misión
               </h3>
               <select
-                value={selectedCampaignId}
-                onChange={(e) => setSelectedCampaignId(e.target.value)}
+                value={selectedMissionId}
+                onChange={(e) => setSelectedMissionId(e.target.value)}
                 className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold transition-colors"
               >
                 <option value="">Sin vincular (biblioteca general)</option>
-                {campaigns.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                {misiones.map((m) => (
+                  <option key={m.id} value={m.id}>{m.titulo}</option>
                 ))}
               </select>
             </div>

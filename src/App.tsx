@@ -6,8 +6,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
-import Dashboard from "./pages/Dashboard";
-import CampaignView from "./pages/CampaignView";
+import MissionsDashboard from "./pages/MissionsDashboard";
+import MissionDetail from "./pages/MissionDetail";
 import Generators from "./pages/Generators";
 import EncounterGenerator from "./pages/EncounterGenerator";
 import NotFound from "./pages/NotFound";
@@ -49,8 +49,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<AuthPage />} />
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/campaign/:id" element={<ProtectedRoute><CampaignView /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><MissionsDashboard /></ProtectedRoute>} />
+          <Route path="/mission/:id" element={<ProtectedRoute><MissionDetail /></ProtectedRoute>} />
           <Route path="/generators" element={<ProtectedRoute><Generators /></ProtectedRoute>} />
           <Route path="/encounter-generator" element={<ProtectedRoute><EncounterGenerator /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />

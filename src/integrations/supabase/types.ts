@@ -71,6 +71,7 @@ export type Database = {
           estrategia_json: Json | null
           fecha_creacion: string
           id: string
+          mission_id: string | null
           nivel_grupo: number
           numero_personajes: number
           tags: string[] | null
@@ -88,6 +89,7 @@ export type Database = {
           estrategia_json?: Json | null
           fecha_creacion?: string
           id?: string
+          mission_id?: string | null
           nivel_grupo: number
           numero_personajes: number
           tags?: string[] | null
@@ -105,6 +107,7 @@ export type Database = {
           estrategia_json?: Json | null
           fecha_creacion?: string
           id?: string
+          mission_id?: string | null
           nivel_grupo?: number
           numero_personajes?: number
           tags?: string[] | null
@@ -122,6 +125,13 @@ export type Database = {
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "encounters_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "misiones"
+            referencedColumns: ["id"]
+          },
         ]
       }
       generated_content: {
@@ -132,6 +142,7 @@ export type Database = {
           editable_text: string
           id: string
           metadata: Json | null
+          mission_id: string | null
           narrative_hooks: Json | null
           relationships: Json | null
           reusable_elements: Json | null
@@ -148,6 +159,7 @@ export type Database = {
           editable_text: string
           id?: string
           metadata?: Json | null
+          mission_id?: string | null
           narrative_hooks?: Json | null
           relationships?: Json | null
           reusable_elements?: Json | null
@@ -164,6 +176,7 @@ export type Database = {
           editable_text?: string
           id?: string
           metadata?: Json | null
+          mission_id?: string | null
           narrative_hooks?: Json | null
           relationships?: Json | null
           reusable_elements?: Json | null
@@ -179,6 +192,13 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_content_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "misiones"
             referencedColumns: ["id"]
           },
         ]
@@ -210,67 +230,61 @@ export type Database = {
         }
         Relationships: []
       }
-      missions: {
+      misiones: {
         Row: {
-          campaign_id: string
+          contenido: string | null
           created_at: string
-          elements: Json | null
-          encounters: Json | null
-          full_content: string | null
-          hook: string | null
+          descripcion: string | null
+          estado: string
           id: string
-          level_range: string | null
-          location: string | null
-          notes: string | null
-          npcs: Json | null
-          rewards: Json | null
-          session_number: number | null
-          summary: string | null
-          title: string
+          linked_missions_ids: string[] | null
+          metadata: Json | null
+          mission_parent_id: string | null
+          nivel_recomendado: string | null
+          tags: string[] | null
+          tipo: string | null
+          titulo: string
+          updated_at: string
           user_id: string
         }
         Insert: {
-          campaign_id: string
+          contenido?: string | null
           created_at?: string
-          elements?: Json | null
-          encounters?: Json | null
-          full_content?: string | null
-          hook?: string | null
+          descripcion?: string | null
+          estado?: string
           id?: string
-          level_range?: string | null
-          location?: string | null
-          notes?: string | null
-          npcs?: Json | null
-          rewards?: Json | null
-          session_number?: number | null
-          summary?: string | null
-          title: string
+          linked_missions_ids?: string[] | null
+          metadata?: Json | null
+          mission_parent_id?: string | null
+          nivel_recomendado?: string | null
+          tags?: string[] | null
+          tipo?: string | null
+          titulo: string
+          updated_at?: string
           user_id: string
         }
         Update: {
-          campaign_id?: string
+          contenido?: string | null
           created_at?: string
-          elements?: Json | null
-          encounters?: Json | null
-          full_content?: string | null
-          hook?: string | null
+          descripcion?: string | null
+          estado?: string
           id?: string
-          level_range?: string | null
-          location?: string | null
-          notes?: string | null
-          npcs?: Json | null
-          rewards?: Json | null
-          session_number?: number | null
-          summary?: string | null
-          title?: string
+          linked_missions_ids?: string[] | null
+          metadata?: Json | null
+          mission_parent_id?: string | null
+          nivel_recomendado?: string | null
+          tags?: string[] | null
+          tipo?: string | null
+          titulo?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "missions_campaign_id_fkey"
-            columns: ["campaign_id"]
+            foreignKeyName: "misiones_mission_parent_id_fkey"
+            columns: ["mission_parent_id"]
             isOneToOne: false
-            referencedRelation: "campaigns"
+            referencedRelation: "misiones"
             referencedColumns: ["id"]
           },
         ]
