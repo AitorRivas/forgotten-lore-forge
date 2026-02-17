@@ -164,12 +164,36 @@ Para CADA criatura:
     const effectiveRegion = campaignContext?.region || region || "Costa de la Espada";
     const effectiveTone = campaignContext?.tone || "épico";
 
+    // Region-specific lore context for the prompt
+    const regionLoreMap: Record<string, string> = {
+      "Costa de la Espada": "Criaturas típicas: goblins, gnolls, orcos, bandidos del Camino Comercial, dragones jóvenes, monstruos marinos costeros, sahuagin. Clima: templado oceánico, nieblas frecuentes. Amenazas: Culto del Dragón, Zhentarim, piratas de Luskan, resurgimiento de Tiamat.",
+      "Costa de la Espada Norte": "Criaturas típicas: trolls de hielo, gigantes de escarcha, lobos invernales, yetis, orcos de Muchas Flechas, dragones blancos. Clima: frío severo, tormentas de nieve. Amenazas: la Hueste Salvaje, restos del ejército de Muchas Flechas, nigromantes del Norte.",
+      "Norte": "Criaturas típicas: gigantes de escarcha y fuego, remorhaz, wyverns, quimeras, osos polares, goblins de las cuevas. Clima: ártico/subártico, ventiscas. Amenazas: Auril, la Doncella de Escarcha, cultos elementales, dragones ancestrales.",
+      "Valles": "Criaturas típicas: drow de Cormanthor, arañas gigantes, licántropos del bosque, treants corruptos, bandidos zhentarim. Clima: continental templado, bosques densos. Amenazas: Zhentarim, drow de Szith Morcane, resurgimiento de Myth Drannor.",
+      "Cormyr": "Criaturas típicas: dragones púrpura (vigilantes), gnolls de las fronteras, goblinoides del Paso del Gnoll, no-muertos del Pantano de los Trolls. Clima: templado, lluvias estacionales. Amenazas: Magos de Guerra rebeldes, cultos de Shar, conspiraciones nobiliarias.",
+      "Calimshan": "Criaturas típicas: genasi, djinn, efreet, lamias, yuan-ti, escorpiones gigantes, momias del desierto. Clima: árido, calor extremo, tormentas de arena. Amenazas: pashas criminales, genios desatados, ruinas de Calim y Memnon.",
+      "Chult": "Criaturas típicas: dinosaurios (velociraptores, t-rex), yuan-ti, pteranodontes, zombies de la Maldición de la Muerte, froghemoths. Clima: tropical, lluvias torrenciales, calor húmedo. Amenazas: Acererak, yuan-ti de Omu, la Maldición de la Muerte.",
+      "Thay": "Criaturas típicas: no-muertos (zombies, esqueletos, espectros, liches menores), gólems, quimeras arcanas, demonios invocados. Clima: continental, tormentas arcanas. Amenazas: Szass Tam, los Magos Rojos, experimentación necromática.",
+      "Amn": "Criaturas típicas: ogros de las Montañas de la Nube, bandidos mercantiles, monstruos del Bosque de Snakewood, yuan-ti infiltrados. Clima: mediterráneo, cálido. Amenazas: Casas mercantiles rivales, Sombras de Amn, cultos ocultos.",
+      "Sembia": "Criaturas típicas: espías, asesinos, constructos de guardia, monstruos de alcantarilla, sombras de Shar. Clima: templado continental. Amenazas: netheril, intrigas políticas, cultos de Shar, contrabandistas.",
+      "Mar de la Luna": "Criaturas típicas: aberraciones del Mar de la Luna, zombies de Phlan, dragones negros, beholders. Clima: continental húmedo, nieblas. Amenazas: Mulmaster, resurgimiento del Templo del Mal Elemental, el Dragón Negro.",
+      "Corazón Occidental": "Criaturas típicas: bandidos del camino, licántropos, no-muertos del Darkhold, wyverns de las Colinas del Atardecer. Clima: templado, praderas. Amenazas: Zhentarim de Darkhold, cultos demoníacos, monstruos errantes.",
+      "Tethyr": "Criaturas típicas: monstruos del Bosque de Tethir, ogros, trolls del bosque, elfos salvajes hostiles. Clima: mediterráneo cálido. Amenazas: guerra civil residual, monstruos del bosque profundo, piratas de la costa.",
+      "Rashemen": "Criaturas típicas: berserkers, espíritus de la naturaleza, lobos terribles, fey oscuras, elementales. Clima: frío continental, bosques densos. Amenazas: Thay, hags del Bosque Inmóvil, espíritus ancestrales corruptos.",
+    };
+
+    const regionLore = regionLoreMap[effectiveRegion] || `Región: ${effectiveRegion}. Usa criaturas apropiadas para el entorno y clima de esta zona de Faerûn según el lore oficial.`;
+
     let userPrompt = `COMPOSICIÓN DEL GRUPO (${partySize || partyMembers?.length || 4} jugadores, nivel promedio ${avgLevel}):
 ${partyAnalysis}
 
 DIFICULTAD OBJETIVO: ${difficultyLabel || "Desafiante"} (nivel ${difficulty}/5)
 REGIÓN: ${effectiveRegion}
-TONO: ${effectiveTone}`;
+TONO: ${effectiveTone}
+
+CONTEXTO REGIONAL (lore oficial de Forgotten Realms):
+${regionLore}
+IMPORTANTE: Selecciona criaturas que sean coherentes con esta región, su clima, amenazas activas y fauna local según el lore oficial. El entorno del encuentro debe reflejar el clima y la geografía regional.`;
 
     if (encounterTheme) userPrompt += `\nTEMA DEL ENCUENTRO: ${encounterTheme}`;
     if (specificRequest) userPrompt += `\nPETICIÓN ESPECÍFICA: ${specificRequest}`;
@@ -187,7 +211,7 @@ TONO: ${effectiveTone}`;
       }
     }
 
-    userPrompt += `\n\nDiseña el encuentro completo siguiendo el formato indicado. Usa SOLO criaturas oficiales de D&D 5e. Valida el equilibrio con las tablas del DMG.`;
+    userPrompt += `\n\nDiseña el encuentro completo siguiendo el formato indicado. Usa SOLO criaturas oficiales de D&D 5e coherentes con la región. Valida el equilibrio con las tablas del DMG.`;
 
     const response = await callAI(
       [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
