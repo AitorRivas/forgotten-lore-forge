@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { faerunLocations } from "@/data/faerun-locations";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
@@ -27,6 +28,7 @@ interface PartyMember {
 interface Campaign {
   id: string;
   name: string;
+  region: string | null;
 }
 
 const CLASSES_5E = [
@@ -85,10 +87,25 @@ const EncounterGenerator = () => {
 
   useEffect(() => {
     const fetchCampaigns = async () => {
-      const { data } = await supabase.from("campaigns").select("id, name").order("name");
+      const { data } = await supabase.from("campaigns").select("id, name, region").order("name");
       if (data) setCampaigns(data);
     };
     fetchCampaigns();
+  }, []);
+
+  // Auto-detect region from selected campaign
+  const activeCampaign = useMemo(() => campaigns.find((c) => c.id === selectedCampaignId), [campaigns, selectedCampaignId]);
+  const campaignHasRegion = !!(activeCampaign?.region);
+
+  useEffect(() => {
+    if (activeCampaign?.region) {
+      setRegion(activeCampaign.region);
+    }
+  }, [activeCampaign]);
+
+  // Build flat region list for dropdown
+  const regionOptions = useMemo(() => {
+    return faerunLocations.map((loc) => loc.region_mayor);
   }, []);
 
   // Section definitions for collapsible display
@@ -414,14 +431,24 @@ const EncounterGenerator = () => {
 
               {/* Region */}
               <div className="mt-4">
-                <label className="text-sm text-muted-foreground block mb-1">Región</label>
-                <input
-                  type="text"
-                  value={region}
-                  onChange={(e) => setRegion(e.target.value)}
-                  placeholder="Costa de la Espada"
-                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold transition-colors"
-                />
+                <label className="text-sm text-muted-foreground block mb-1">
+                  Región {campaignHasRegion && <span className="text-gold text-xs">(de campaña)</span>}
+                </label>
+                {campaignHasRegion ? (
+                  <div className="w-full bg-secondary/50 border border-gold/30 rounded px-3 py-2 text-sm text-gold">
+                    {region}
+                  </div>
+                ) : (
+                  <select
+                    value={region}
+                    onChange={(e) => setRegion(e.target.value)}
+                    className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold transition-colors"
+                  >
+                    {regionOptions.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
 
