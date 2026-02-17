@@ -183,6 +183,33 @@ export type Database = {
           },
         ]
       }
+      logs_ia: {
+        Row: {
+          created_at: string
+          detalles: string | null
+          id: string
+          proveedor: string
+          tipo_error: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          detalles?: string | null
+          id?: string
+          proveedor: string
+          tipo_error: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          detalles?: string | null
+          id?: string
+          proveedor?: string
+          tipo_error?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       missions: {
         Row: {
           campaign_id: string
