@@ -95,11 +95,13 @@ const Generators = () => {
   const [reviewing, setReviewing] = useState(false);
   const [reviewResult, setReviewResult] = useState<any>(null);
   const [lastPromptUsed, setLastPromptUsed] = useState("");
+  const [providerType, setProviderType] = useState<"primary" | "alternative" | null>(null);
 
   const generate = useCallback(async (module: GeneratorModule) => {
     setGenerating(true);
     setStreamContent("");
     setLastPromptUsed(customPrompt);
+    setProviderType(null);
 
     try {
       const body: Record<string, string | undefined> = {
@@ -122,6 +124,11 @@ const Generators = () => {
         const errData = await resp.json().catch(() => ({}));
         throw new Error(errData.error || "Error generando contenido");
       }
+
+      // Read provider from response header
+      const providerHeader = resp.headers.get("X-AI-Provider");
+      if (providerHeader === "alternative") setProviderType("alternative");
+      else setProviderType("primary");
 
       if (!resp.body) throw new Error("No stream body");
 
@@ -348,6 +355,12 @@ const Generators = () => {
                   animate={{ opacity: 1 }}
                    className="ornate-border rounded-lg p-6 parchment-bg"
                  >
+                   {providerType === "alternative" && (
+                     <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 rounded px-3 py-1.5 mb-3 w-fit">
+                       <Info size={12} />
+                       <span>Generado con proveedor alternativo por disponibilidad temporal.</span>
+                     </div>
+                   )}
                    <div className="flex justify-between items-center mb-3">
                      <div className="flex gap-2">
                        <button

@@ -53,19 +53,19 @@ serve(async (req) => {
       ? `Convierte este contenido en un guión de sesión ejecutable:\n\n${customPrompt}`
       : `Crea un guión de sesión completo y original para un grupo de aventureros de nivel 5-7 en Forgotten Realms.`;
 
-    const response = await generateWithFallback(SYSTEM_PROMPT, userPrompt, {
+    const aiResult = await generateWithFallback(SYSTEM_PROMPT, userPrompt, {
       contentType: "session-script",
       outputFormat: "markdown",
       stream: true,
       model: "gemini-2.5-pro",
     });
 
-    if (!response) {
+    if (!aiResult) {
       return new Response(JSON.stringify({ error: "Los servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    return new Response(response.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+    return new Response(aiResult.response.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "X-AI-Provider": aiResult.provider } });
   } catch (e) {
     console.error("generate-session-script error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),

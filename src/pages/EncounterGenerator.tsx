@@ -9,7 +9,7 @@ import {
   ArrowLeft, Swords, Loader2, Save, Pencil, Eye, Users, Shield,
   Skull, Flame, Zap, Target, MapPin, RefreshCw, X, Link2, Plus, Trash2,
   ChevronDown, BookOpen, Mountain, Bug, BarChart3, Star, Sparkles, Brain, ScrollText, Settings2,
-  Check, Scale,
+  Check, Scale, Info,
 } from "lucide-react";
 import {
   Collapsible,
@@ -66,6 +66,7 @@ const EncounterGenerator = () => {
   const [editMode, setEditMode] = useState(false);
   const [editedContent, setEditedContent] = useState("");
   const [validationResult, setValidationResult] = useState<string | null>(null);
+  const [providerType, setProviderType] = useState<"primary" | "alternative" | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
 
   const avgLevel = partyMembers.length
@@ -201,6 +202,7 @@ const EncounterGenerator = () => {
     setEditMode(false);
     setSavedEncounterId(null);
     setValidationResult(null);
+    setProviderType(null);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -238,6 +240,7 @@ const EncounterGenerator = () => {
 
       const data = await resp.json();
       setEncounter(data.encounter_markdown);
+      setProviderType(data.provider || "primary");
       toast.success("¡Encuentro generado!");
     } catch (e: any) {
       toast.error(e.message || "Error generando encuentro");
@@ -546,6 +549,13 @@ const EncounterGenerator = () => {
           <div className="lg:col-span-2">
             {encounter ? (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                {/* Provider indicator */}
+                {providerType === "alternative" && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 rounded px-3 py-1.5 w-fit">
+                    <Info size={12} />
+                    <span>Generado con proveedor alternativo por disponibilidad temporal.</span>
+                  </div>
+                )}
                 {/* Action buttons */}
                 <div className="flex flex-wrap gap-2 justify-end">
                   <button

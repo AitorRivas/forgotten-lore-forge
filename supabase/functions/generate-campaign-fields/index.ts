@@ -32,17 +32,17 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const response = await callAIWithFallback(
+    const aiResult = await callAIWithFallback(
       [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: "Genera una campaña original e inesperada para D&D 5e en Faerûn. Sorpréndeme." }],
       { model: "gemini-2.5-flash" }
     );
 
-    if (!response) {
+    if (!aiResult) {
       return new Response(JSON.stringify({ error: "Ambos servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const data = await response.json();
+    const data = await aiResult.response.json();
     let content = data.choices?.[0]?.message?.content || "";
     content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     const parsed = JSON.parse(content);

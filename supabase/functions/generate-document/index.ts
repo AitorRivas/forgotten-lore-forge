@@ -51,17 +51,17 @@ MEMORIA NARRATIVA:\n${JSON.stringify(narrativeContext || {}, null, 2)}
 
 Genera un documento narrativo completo y utilizable en mesa.`;
 
-    const response = await callAIWithFallback(
+    const aiResult = await callAIWithFallback(
       [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
       { model: "gemini-2.5-pro", temperature: 0.85, response_mime_type: "application/json" }
     );
 
-    if (!response) {
+    if (!aiResult) {
       return new Response(JSON.stringify({ error: "Ambos servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const data = await response.json();
+    const data = await aiResult.response.json();
     const content = data.choices?.[0]?.message?.content;
     let document;
     try { document = JSON.parse(content); } catch { document = { raw: content, parse_error: true }; }

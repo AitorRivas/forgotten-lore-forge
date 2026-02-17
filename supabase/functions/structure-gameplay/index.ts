@@ -50,17 +50,17 @@ serve(async (req) => {
       ? `Transforma el siguiente contenido narrativo en formato de gameplay estructurado:\n\n${customPrompt}`
       : `Crea una estructura de gameplay completa y original para una sesión de D&D 5e nivel 5-7 en Forgotten Realms.`;
 
-    const response = await callAIWithFallback(
+    const aiResult = await callAIWithFallback(
       [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: prompt }],
       { model: "gemini-2.5-pro", stream: true }
     );
 
-    if (!response) {
+    if (!aiResult) {
       return new Response(JSON.stringify({ error: "Ambos servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    return new Response(response.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+    return new Response(aiResult.response.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "X-AI-Provider": aiResult.provider } });
   } catch (e) {
     console.error("structure-gameplay error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),

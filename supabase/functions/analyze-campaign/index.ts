@@ -95,7 +95,7 @@ serve(async (req) => {
       });
     }
 
-    const aiResponse = await callAIWithFallback(
+    const aiResult = await callAIWithFallback(
       [
         { role: "system", content: "Eres un analista narrativo experto para campañas de D&D 5e. Responde SOLO con JSON válido, sin markdown ni backticks." },
         { role: "user", content: ANALYSIS_PROMPT + "\n\n" + analysisInput },
@@ -103,12 +103,12 @@ serve(async (req) => {
       { model: "gemini-2.5-flash" }
     );
 
-    if (!aiResponse) {
+    if (!aiResult) {
       return new Response(JSON.stringify({ error: "Ambos servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const aiData = await aiResponse.json();
+    const aiData = await aiResult.response.json();
     const rawContent = aiData.choices?.[0]?.message?.content || "{}";
     console.log("Raw AI content (first 500 chars):", rawContent.substring(0, 500));
     // Strip markdown fences and any leading/trailing non-JSON text

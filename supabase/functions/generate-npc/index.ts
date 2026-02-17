@@ -125,22 +125,22 @@ serve(async (req) => {
       userPrompt += `\n\nINSTRUCCIONES DEL USUARIO:\n${customPrompt}`;
     }
 
-    const response = await generateWithFallback(SYSTEM_PROMPT, userPrompt, {
+    const aiResult = await generateWithFallback(SYSTEM_PROMPT, userPrompt, {
       contentType: "npc",
       outputFormat: "markdown",
       stream: true,
       model: "gemini-2.5-pro",
     });
 
-    if (!response) {
+    if (!aiResult) {
       return new Response(
         JSON.stringify({ error: "Ambos servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+    return new Response(aiResult.response.body, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream", "X-AI-Provider": aiResult.provider },
     });
   } catch (e) {
     console.error("generate-npc error:", e);
