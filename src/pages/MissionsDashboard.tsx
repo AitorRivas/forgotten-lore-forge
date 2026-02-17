@@ -12,11 +12,13 @@ import ContextPanel from "@/components/ContextPanel";
 
 interface Mision {
   id: string;
-  titulo: string;
+  titulo: string | null;
   descripcion: string | null;
   tipo: string | null;
   estado: string;
   nivel_recomendado: string | null;
+  ubicacion_principal: string | null;
+  tono: string | null;
   tags: string[];
   mission_parent_id: string | null;
   created_at: string;
@@ -101,7 +103,7 @@ const MissionsDashboard = () => {
 
   const filtered = misiones.filter((m) => {
     if (filterEstado !== "todas" && m.estado !== filterEstado) return false;
-    if (searchQuery && !m.titulo.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (searchQuery && !(m.titulo || "").toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 
@@ -240,8 +242,11 @@ const MissionsDashboard = () => {
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <h3 className="font-display text-base sm:text-lg text-gold truncate">
-                            {mision.titulo}
+                            {mision.titulo || "Misión sin título"}
                           </h3>
+                          {mision.ubicacion_principal && (
+                            <span className="text-xs text-muted-foreground">{mision.ubicacion_principal}</span>
+                          )}
                           {mision.descripcion && (
                             <p className="text-muted-foreground text-sm mt-1 line-clamp-2">
                               {mision.descripcion}

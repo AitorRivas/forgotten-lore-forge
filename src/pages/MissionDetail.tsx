@@ -3,15 +3,17 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import ReactMarkdown from "react-markdown";
 import {
   ArrowLeft, ChevronRight, ChevronDown, Swords, Target, Plus,
   Link2, Pencil, Save, Loader2, Scroll, Check, Archive, Trash2, Theater,
+  MapPin, BookOpen, Shield, AlertTriangle, Trophy, Eye, Gem,
 } from "lucide-react";
 import CreateMissionDialog from "@/components/CreateMissionDialog";
 
 interface Mision {
   id: string;
-  titulo: string;
+  titulo: string | null;
   descripcion: string | null;
   tipo: string | null;
   estado: string;
@@ -21,6 +23,22 @@ interface Mision {
   linked_missions_ids: string[];
   contenido: string | null;
   metadata: any;
+  tono: string | null;
+  ubicacion_principal: string | null;
+  contexto_general: string | null;
+  detonante: string | null;
+  conflicto_central: string | null;
+  trama_detallada: string | null;
+  actos_o_fases: any[];
+  posibles_rutas: any[];
+  giros_argumentales: any[];
+  consecuencias_potenciales: any;
+  secretos_ocultos: string[];
+  eventos_dinamicos: string[];
+  recompensas_sugeridas: any;
+  riesgos_escalada: string[];
+  facciones_involucradas: string[];
+  pnj_clave: string[];
   created_at: string;
   updated_at: string;
 }
@@ -36,7 +54,7 @@ interface Encounter {
 
 interface LinkedMision {
   id: string;
-  titulo: string;
+  titulo: string | null;
   estado: string;
 }
 
@@ -58,27 +76,28 @@ const MissionDetail = () => {
   const [encounters, setEncounters] = useState<Encounter[]>([]);
   const [scenes, setScenes] = useState<any[]>([]);
   const [linkedMisions, setLinkedMisions] = useState<LinkedMision[]>([]);
-  const [breadcrumb, setBreadcrumb] = useState<{ id: string; titulo: string }[]>([]);
+  const [breadcrumb, setBreadcrumb] = useState<{ id: string; titulo: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateSub, setShowCreateSub] = useState(false);
 
-  // Expandable sections
+  // Editing
+  const [editingContent, setEditingContent] = useState(false);
+  const [editContent, setEditContent] = useState("");
+  const [savingContent, setSavingContent] = useState(false);
+
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     info: true,
-    submisiones: true,
+    contenido: true,
+    submisiones: false,
     escenas: false,
     encuentros: false,
     relacionadas: false,
   });
 
   const toggleSection = (key: string) =>
-    setExpandedSections((p) => ({ ...p, [key]: !p[key] }));
+    setExpandedSections(p => ({ ...p, [key]: !p[key] }));
 
-  useEffect(() => {
-    if (id) {
-      fetchAll();
-    }
-  }, [id]);
+  useEffect(() => { if (id) fetchAll(); }, [id]);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -87,42 +106,40 @@ const MissionDetail = () => {
   };
 
   const fetchMision = async () => {
-    const { data, error } = await supabase
-      .from("misiones")
-      .select("*")
-      .eq("id", id!)
-      .single();
-
-    if (error || !data) {
-      toast.error("Misión no encontrada");
-      navigate("/dashboard");
-      return;
-    }
-
+    const { data, error } = await supabase.from("misiones").select("*").eq("id", id!).single();
+    if (error || !data) { toast.error("Misión no encontrada"); navigate("/dashboard"); return; }
     const m = data as any;
-    setMision({ ...m, tags: m.tags || [], linked_missions_ids: m.linked_missions_ids || [] });
+    setMision({
+      ...m,
+      tags: m.tags || [],
+      linked_missions_ids: m.linked_missions_ids || [],
+      actos_o_fases: m.actos_o_fases || [],
+      posibles_rutas: m.posibles_rutas || [],
+      giros_argumentales: m.giros_argumentales || [],
+      consecuencias_potenciales: m.consecuencias_potenciales || {},
+      secretos_ocultos: m.secretos_ocultos || [],
+      eventos_dinamicos: m.eventos_dinamicos || [],
+      recompensas_sugeridas: m.recompensas_sugeridas || {},
+      riesgos_escalada: m.riesgos_escalada || [],
+      facciones_involucradas: m.facciones_involucradas || [],
+      pnj_clave: m.pnj_clave || [],
+    });
 
-    // Build breadcrumb
-    const crumbs: { id: string; titulo: string }[] = [];
+    // Breadcrumb
+    const crumbs: { id: string; titulo: string | null }[] = [];
     let currentParentId = m.mission_parent_id;
     while (currentParentId) {
       const { data: parent } = await supabase
-        .from("misiones")
-        .select("id, titulo, mission_parent_id")
-        .eq("id", currentParentId)
-        .single();
+        .from("misiones").select("id, titulo, mission_parent_id").eq("id", currentParentId).single();
       if (!parent) break;
       crumbs.unshift({ id: parent.id, titulo: parent.titulo });
       currentParentId = parent.mission_parent_id;
     }
     setBreadcrumb(crumbs);
 
-    // Fetch linked missions
+    // Linked
     if (m.linked_missions_ids?.length > 0) {
-      const { data: linked } = await supabase
-        .from("misiones")
-        .select("id, titulo, estado")
-        .in("id", m.linked_missions_ids);
+      const { data: linked } = await supabase.from("misiones").select("id, titulo, estado").in("id", m.linked_missions_ids);
       setLinkedMisions((linked as LinkedMision[]) || []);
     } else {
       setLinkedMisions([]);
@@ -130,72 +147,48 @@ const MissionDetail = () => {
   };
 
   const fetchSubmisiones = async () => {
-    const { data } = await supabase
-      .from("misiones")
-      .select("*")
-      .eq("mission_parent_id", id!)
-      .order("created_at", { ascending: true });
-
-    setSubmisiones(
-      (data || []).map((m: any) => ({
-        ...m,
-        tags: m.tags || [],
-        linked_missions_ids: m.linked_missions_ids || [],
-      }))
-    );
+    const { data } = await supabase.from("misiones").select("*").eq("mission_parent_id", id!).order("created_at", { ascending: true });
+    setSubmisiones((data || []).map((m: any) => ({ ...m, tags: m.tags || [], linked_missions_ids: m.linked_missions_ids || [] })));
   };
 
   const fetchEncounters = async () => {
-    const { data } = await supabase
-      .from("encounters")
-      .select("id, texto_completo_editable, tipo, dificultad, nivel_grupo, created_at")
-      .eq("mission_id", id!)
-      .order("created_at", { ascending: false });
-
+    const { data } = await supabase.from("encounters").select("id, texto_completo_editable, tipo, dificultad, nivel_grupo, created_at").eq("mission_id", id!).order("created_at", { ascending: false });
     setEncounters((data as Encounter[]) || []);
   };
 
   const fetchScenes = async () => {
-    const { data } = await supabase
-      .from("escenas" as any)
-      .select("id, titulo, tipo, localizacion, created_at")
-      .eq("mission_id", id!)
-      .order("created_at", { ascending: false });
+    const { data } = await supabase.from("escenas").select("id, titulo, tipo, localizacion, created_at").eq("mission_id", id!).order("created_at", { ascending: false });
     setScenes((data as any[]) || []);
   };
 
   const updateEstado = async (newEstado: string) => {
     if (!mision) return;
-    const { error } = await supabase
-      .from("misiones")
-      .update({ estado: newEstado })
-      .eq("id", mision.id);
-
-    if (error) {
-      toast.error("Error actualizando estado");
-    } else {
-      toast.success(`Misión marcada como ${newEstado}`);
-      setMision({ ...mision, estado: newEstado });
-    }
+    const { error } = await supabase.from("misiones").update({ estado: newEstado }).eq("id", mision.id);
+    if (error) toast.error("Error actualizando estado");
+    else { toast.success(`Misión: ${newEstado}`); setMision({ ...mision, estado: newEstado }); }
   };
 
   const deleteMision = async () => {
-    if (!mision) return;
-    if (!confirm("¿Eliminar esta misión y todas sus submisiones?")) return;
-    const { error } = await supabase
-      .from("misiones")
-      .delete()
-      .eq("id", mision.id);
-    if (error) {
-      toast.error("Error eliminando misión");
-    } else {
+    if (!mision || !confirm("¿Eliminar esta misión y todas sus submisiones?")) return;
+    const { error } = await supabase.from("misiones").delete().eq("id", mision.id);
+    if (error) toast.error("Error eliminando");
+    else {
       toast.success("Misión eliminada");
-      if (mision.mission_parent_id) {
-        navigate(`/mission/${mision.mission_parent_id}`);
-      } else {
-        navigate("/dashboard");
-      }
+      navigate(mision.mission_parent_id ? `/mission/${mision.mission_parent_id}` : "/dashboard");
     }
+  };
+
+  const handleSaveContent = async () => {
+    if (!mision) return;
+    setSavingContent(true);
+    const { error } = await supabase.from("misiones").update({ contenido: editContent }).eq("id", mision.id);
+    if (error) toast.error("Error guardando");
+    else {
+      toast.success("Contenido guardado");
+      setMision({ ...mision, contenido: editContent });
+      setEditingContent(false);
+    }
+    setSavingContent(false);
   };
 
   if (loading || !mision) {
@@ -206,151 +199,142 @@ const MissionDetail = () => {
     );
   }
 
+  const displayTitle = mision.titulo || "Misión sin título";
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Sticky header with breadcrumb */}
+      {/* Header */}
       <header className="border-b border-border px-4 py-3 sticky top-0 bg-background/95 backdrop-blur-sm z-40">
         <div className="max-w-4xl mx-auto">
-          {/* Breadcrumb */}
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1 overflow-x-auto">
-            <button onClick={() => navigate("/dashboard")} className="hover:text-gold shrink-0">
-              Inicio
-            </button>
-            {breadcrumb.map((crumb) => (
+            <button onClick={() => navigate("/dashboard")} className="hover:text-gold shrink-0">Inicio</button>
+            {breadcrumb.map(crumb => (
               <span key={crumb.id} className="flex items-center gap-1.5 shrink-0">
                 <ChevronRight size={12} />
                 <button onClick={() => navigate(`/mission/${crumb.id}`)} className="hover:text-gold truncate max-w-[120px]">
-                  {crumb.titulo}
+                  {crumb.titulo || "Sin título"}
                 </button>
               </span>
             ))}
             <ChevronRight size={12} className="shrink-0" />
-            <span className="text-foreground truncate">{mision.titulo}</span>
+            <span className="text-foreground truncate">{displayTitle}</span>
           </div>
-
-          {/* Back + title */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => {
-                if (mision.mission_parent_id) {
-                  navigate(`/mission/${mision.mission_parent_id}`);
-                } else {
-                  navigate("/dashboard");
-                }
-              }}
+              onClick={() => navigate(mision.mission_parent_id ? `/mission/${mision.mission_parent_id}` : "/dashboard")}
               className="text-muted-foreground hover:text-foreground transition-colors p-1"
             >
               <ArrowLeft size={20} />
             </button>
-            <h1 className="font-display text-lg sm:text-xl text-gold text-glow truncate">
-              {mision.titulo}
-            </h1>
+            <h1 className="font-display text-lg sm:text-xl text-gold text-glow truncate">{displayTitle}</h1>
           </div>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-4">
-        {/* SECTION: Info Principal */}
-        <SectionCard
-          title="Información"
-          icon={Scroll}
-          open={expandedSections.info}
-          onToggle={() => toggleSection("info")}
-        >
-          {mision.descripcion && (
-            <p className="text-sm text-foreground mb-4">{mision.descripcion}</p>
-          )}
-
+        {/* INFO */}
+        <SectionCard title="Información General" icon={Scroll} open={expandedSections.info} onToggle={() => toggleSection("info")}>
           <div className="flex flex-wrap gap-2 mb-4">
-            <span className={`text-xs px-2 py-1 rounded capitalize ${ESTADO_BADGE[mision.estado] || "bg-secondary text-muted-foreground"}`}>
-              {mision.estado}
-            </span>
-            {mision.nivel_recomendado && (
-              <span className="text-xs bg-secondary text-muted-foreground px-2 py-1 rounded">
-                Nivel {mision.nivel_recomendado}
-              </span>
-            )}
-            {mision.tipo && (
-              <span className="text-xs bg-secondary text-muted-foreground px-2 py-1 rounded capitalize">
-                {mision.tipo}
-              </span>
-            )}
+            <span className={`text-xs px-2 py-1 rounded capitalize ${ESTADO_BADGE[mision.estado] || "bg-secondary text-muted-foreground"}`}>{mision.estado}</span>
+            {mision.nivel_recomendado && <span className="text-xs bg-secondary text-muted-foreground px-2 py-1 rounded">Nivel {mision.nivel_recomendado}</span>}
+            {mision.tipo && <span className="text-xs bg-secondary text-muted-foreground px-2 py-1 rounded capitalize">{mision.tipo}</span>}
+            {mision.tono && <span className="text-xs bg-secondary text-muted-foreground px-2 py-1 rounded capitalize">{mision.tono}</span>}
           </div>
+
+          {mision.ubicacion_principal && (
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-3">
+              <MapPin size={14} className="text-gold shrink-0" />
+              <span>{mision.ubicacion_principal}</span>
+            </div>
+          )}
 
           {mision.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-4">
-              {mision.tags.map((tag) => (
-                <span key={tag} className="text-xs bg-secondary/70 text-muted-foreground px-2 py-0.5 rounded">
-                  {tag}
-                </span>
+              {mision.tags.map(tag => (
+                <span key={tag} className="text-xs bg-secondary/70 text-muted-foreground px-2 py-0.5 rounded">{tag}</span>
               ))}
             </div>
           )}
 
-          {/* Actions */}
+          {/* Status actions */}
           <div className="flex flex-wrap gap-2">
             {mision.estado !== "completada" && (
-              <button
-                onClick={() => updateEstado("completada")}
-                className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border hover:border-green-500/50 transition-colors"
-              >
+              <button onClick={() => updateEstado("completada")} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border hover:border-green-500/50 transition-colors">
                 <Check size={14} /> Completar
               </button>
             )}
             {mision.estado !== "archivada" && (
-              <button
-                onClick={() => updateEstado("archivada")}
-                className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border hover:border-muted-foreground/50 transition-colors"
-              >
+              <button onClick={() => updateEstado("archivada")} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border hover:border-muted-foreground/50 transition-colors">
                 <Archive size={14} /> Archivar
               </button>
             )}
             {mision.estado !== "activa" && (
-              <button
-                onClick={() => updateEstado("activa")}
-                className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border hover:border-gold/50 transition-colors"
-              >
+              <button onClick={() => updateEstado("activa")} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border hover:border-gold/50 transition-colors">
                 <Target size={14} /> Reactivar
               </button>
             )}
-            <button
-              onClick={deleteMision}
-              className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border text-destructive hover:border-destructive/50 transition-colors ml-auto"
-            >
+            <button onClick={deleteMision} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border text-destructive hover:border-destructive/50 transition-colors ml-auto">
               <Trash2 size={14} /> Eliminar
             </button>
           </div>
         </SectionCard>
 
-        {/* SECTION: Submisiones */}
-        <SectionCard
-          title={`Submisiones (${submisiones.length})`}
-          icon={Target}
-          open={expandedSections.submisiones}
-          onToggle={() => toggleSection("submisiones")}
-        >
+        {/* CONTENIDO NARRATIVO */}
+        <SectionCard title="Contenido Narrativo" icon={BookOpen} open={expandedSections.contenido} onToggle={() => toggleSection("contenido")}>
+          {mision.contenido ? (
+            <div>
+              {editingContent ? (
+                <div className="space-y-3">
+                  <textarea
+                    value={editContent}
+                    onChange={e => setEditContent(e.target.value)}
+                    rows={16}
+                    className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-foreground text-sm focus:outline-none focus:border-gold transition-colors resize-y font-mono"
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditingContent(false)} className="flex-1 border border-border text-foreground text-sm py-2 rounded-lg hover:bg-secondary transition-colors">
+                      Cancelar
+                    </button>
+                    <button onClick={handleSaveContent} disabled={savingContent} className="flex-1 bg-primary text-primary-foreground text-sm py-2 rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5">
+                      {savingContent ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                      Guardar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <button
+                    onClick={() => { setEditContent(mision.contenido || ""); setEditingContent(true); }}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-gold mb-3 transition-colors"
+                  >
+                    <Pencil size={12} /> Editar contenido
+                  </button>
+                  <div className="prose prose-invert prose-sm max-w-none text-foreground prose-headings:text-gold prose-headings:font-display prose-strong:text-foreground/90">
+                    <ReactMarkdown>{mision.contenido}</ReactMarkdown>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No hay contenido narrativo. Genera con IA al crear o edita manualmente.</p>
+          )}
+        </SectionCard>
+
+        {/* SUBMISIONES */}
+        <SectionCard title={`Submisiones (${submisiones.length})`} icon={Target} open={expandedSections.submisiones} onToggle={() => toggleSection("submisiones")}>
           {submisiones.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay submisiones aún</p>
           ) : (
             <div className="space-y-2">
-              {submisiones.map((sub, i) => (
-                <button
-                  key={sub.id}
-                  onClick={() => navigate(`/mission/${sub.id}`)}
-                  className="w-full text-left ornate-border rounded-lg p-3 hover:border-gold/50 transition-colors"
-                  style={{ marginLeft: 0 }}
-                >
+              {submisiones.map(sub => (
+                <button key={sub.id} onClick={() => navigate(`/mission/${sub.id}`)} className="w-full text-left ornate-border rounded-lg p-3 hover:border-gold/50 transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
-                      <span className="font-display text-sm text-gold truncate block">{sub.titulo}</span>
-                      {sub.descripcion && (
-                        <span className="text-xs text-muted-foreground line-clamp-1">{sub.descripcion}</span>
-                      )}
+                      <span className="font-display text-sm text-gold truncate block">{sub.titulo || "Sin título"}</span>
+                      {sub.tipo && <span className="text-xs text-muted-foreground capitalize">{sub.tipo}</span>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${ESTADO_BADGE[sub.estado]}`}>
-                        {sub.estado}
-                      </span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${ESTADO_BADGE[sub.estado]}`}>{sub.estado}</span>
                       <ChevronRight size={16} className="text-muted-foreground" />
                     </div>
                   </div>
@@ -358,21 +342,13 @@ const MissionDetail = () => {
               ))}
             </div>
           )}
-          <button
-            onClick={() => setShowCreateSub(true)}
-            className="w-full mt-3 flex items-center justify-center gap-2 border border-dashed border-border rounded-lg py-3 text-sm text-muted-foreground hover:text-gold hover:border-gold/40 transition-colors"
-          >
+          <button onClick={() => setShowCreateSub(true)} className="w-full mt-3 flex items-center justify-center gap-2 border border-dashed border-border rounded-lg py-3 text-sm text-muted-foreground hover:text-gold hover:border-gold/40 transition-colors">
             <Plus size={16} /> Añadir Submisión
           </button>
         </SectionCard>
 
-        {/* SECTION: Escenas */}
-        <SectionCard
-          title={`Escenas (${scenes.length})`}
-          icon={Theater}
-          open={expandedSections.escenas}
-          onToggle={() => toggleSection("escenas")}
-        >
+        {/* ESCENAS */}
+        <SectionCard title={`Escenas (${scenes.length})`} icon={Theater} open={expandedSections.escenas} onToggle={() => toggleSection("escenas")}>
           {scenes.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay escenas asociadas</p>
           ) : (
@@ -388,26 +364,18 @@ const MissionDetail = () => {
               ))}
             </div>
           )}
-          <button
-            onClick={() => navigate(`/scene-generator?missionId=${mision.id}`)}
-            className="w-full mt-3 flex items-center justify-center gap-2 border border-dashed border-border rounded-lg py-3 text-sm text-muted-foreground hover:text-gold hover:border-gold/40 transition-colors"
-          >
+          <button onClick={() => navigate(`/scene-generator?missionId=${mision.id}`)} className="w-full mt-3 flex items-center justify-center gap-2 border border-dashed border-border rounded-lg py-3 text-sm text-muted-foreground hover:text-gold hover:border-gold/40 transition-colors">
             <Theater size={16} /> Generar Escena
           </button>
         </SectionCard>
 
-        {/* SECTION: Encuentros */}
-        <SectionCard
-          title={`Encuentros (${encounters.length})`}
-          icon={Swords}
-          open={expandedSections.encuentros}
-          onToggle={() => toggleSection("encuentros")}
-        >
+        {/* ENCUENTROS */}
+        <SectionCard title={`Encuentros (${encounters.length})`} icon={Swords} open={expandedSections.encuentros} onToggle={() => toggleSection("encuentros")}>
           {encounters.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay encuentros vinculados</p>
           ) : (
             <div className="space-y-2">
-              {encounters.map((enc) => {
+              {encounters.map(enc => {
                 const firstLine = enc.texto_completo_editable?.split("\n")[0]?.replace(/^#+\s*/, "").slice(0, 80) || "Encuentro";
                 return (
                   <div key={enc.id} className="ornate-border rounded-lg p-3">
@@ -422,37 +390,23 @@ const MissionDetail = () => {
               })}
             </div>
           )}
-          <button
-            onClick={() => navigate(`/encounter-generator?missionId=${mision.id}`)}
-            className="w-full mt-3 flex items-center justify-center gap-2 border border-dashed border-border rounded-lg py-3 text-sm text-muted-foreground hover:text-gold hover:border-gold/40 transition-colors"
-          >
+          <button onClick={() => navigate(`/encounter-generator?missionId=${mision.id}`)} className="w-full mt-3 flex items-center justify-center gap-2 border border-dashed border-border rounded-lg py-3 text-sm text-muted-foreground hover:text-gold hover:border-gold/40 transition-colors">
             <Swords size={16} /> Generar Encuentro
           </button>
         </SectionCard>
 
-        {/* SECTION: Misiones Relacionadas */}
-        <SectionCard
-          title={`Relacionadas (${linkedMisions.length})`}
-          icon={Link2}
-          open={expandedSections.relacionadas}
-          onToggle={() => toggleSection("relacionadas")}
-        >
+        {/* RELACIONADAS */}
+        <SectionCard title={`Relacionadas (${linkedMisions.length})`} icon={Link2} open={expandedSections.relacionadas} onToggle={() => toggleSection("relacionadas")}>
           {linkedMisions.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay misiones relacionadas</p>
           ) : (
             <div className="space-y-2">
-              {linkedMisions.map((lm) => (
-                <button
-                  key={lm.id}
-                  onClick={() => navigate(`/mission/${lm.id}`)}
-                  className="w-full text-left ornate-border rounded-lg p-3 hover:border-gold/50 transition-colors"
-                >
+              {linkedMisions.map(lm => (
+                <button key={lm.id} onClick={() => navigate(`/mission/${lm.id}`)} className="w-full text-left ornate-border rounded-lg p-3 hover:border-gold/50 transition-colors">
                   <div className="flex items-center justify-between">
-                    <span className="font-display text-sm text-foreground">{lm.titulo}</span>
+                    <span className="font-display text-sm text-foreground">{lm.titulo || "Sin título"}</span>
                     <div className="flex items-center gap-2">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${ESTADO_BADGE[lm.estado]}`}>
-                        {lm.estado}
-                      </span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${ESTADO_BADGE[lm.estado]}`}>{lm.estado}</span>
                       <ChevronRight size={16} className="text-muted-foreground" />
                     </div>
                   </div>
@@ -463,7 +417,7 @@ const MissionDetail = () => {
         </SectionCard>
       </main>
 
-      {/* FAB for new submission */}
+      {/* FAB */}
       <button
         onClick={() => setShowCreateSub(true)}
         className="fixed bottom-6 right-6 bg-primary text-primary-foreground rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:bg-gold-dark transition-colors z-50"
@@ -475,11 +429,9 @@ const MissionDetail = () => {
       <CreateMissionDialog
         open={showCreateSub}
         onClose={() => setShowCreateSub(false)}
-        onCreated={() => {
-          fetchSubmisiones();
-        }}
+        onCreated={() => fetchSubmisiones()}
         parentId={mision.id}
-        parentTitle={mision.titulo}
+        parentTitle={displayTitle}
       />
     </div>
   );
@@ -487,17 +439,9 @@ const MissionDetail = () => {
 
 // Reusable collapsible section card
 const SectionCard = ({
-  title,
-  icon: Icon,
-  open,
-  onToggle,
-  children,
+  title, icon: Icon, open, onToggle, children,
 }: {
-  title: string;
-  icon: React.ElementType;
-  open: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
+  title: string; icon: React.ElementType; open: boolean; onToggle: () => void; children: React.ReactNode;
 }) => (
   <div className="ornate-border rounded-lg parchment-bg overflow-hidden">
     <button onClick={onToggle} className="w-full flex items-center justify-between p-4">
@@ -505,11 +449,7 @@ const SectionCard = ({
         <Icon size={16} className="text-gold" />
         <span className="font-display text-sm text-foreground">{title}</span>
       </div>
-      {open ? (
-        <ChevronDown size={18} className="text-muted-foreground" />
-      ) : (
-        <ChevronRight size={18} className="text-muted-foreground" />
-      )}
+      {open ? <ChevronDown size={18} className="text-muted-foreground" /> : <ChevronRight size={18} className="text-muted-foreground" />}
     </button>
     <AnimatePresence>
       {open && (

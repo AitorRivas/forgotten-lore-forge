@@ -309,50 +309,104 @@ export type Database = {
       }
       misiones: {
         Row: {
+          actos_o_fases: Json | null
+          conflicto_central: string | null
+          consecuencias_potenciales: Json | null
           contenido: string | null
+          contexto_general: string | null
           created_at: string
           descripcion: string | null
+          detonante: string | null
           estado: string
+          eventos_dinamicos: string[] | null
+          facciones_involucradas: string[] | null
+          giros_argumentales: Json | null
           id: string
           linked_missions_ids: string[] | null
           metadata: Json | null
           mission_parent_id: string | null
           nivel_recomendado: string | null
+          objeto_clave: string[] | null
+          pnj_clave: string[] | null
+          posibles_rutas: Json | null
+          recompensas_sugeridas: Json | null
+          riesgos_escalada: string[] | null
+          secretos_ocultos: string[] | null
+          sububicaciones: string[] | null
           tags: string[] | null
           tipo: string | null
-          titulo: string
+          titulo: string | null
+          tono: string | null
+          trama_detallada: string | null
+          ubicacion_principal: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          actos_o_fases?: Json | null
+          conflicto_central?: string | null
+          consecuencias_potenciales?: Json | null
           contenido?: string | null
+          contexto_general?: string | null
           created_at?: string
           descripcion?: string | null
+          detonante?: string | null
           estado?: string
+          eventos_dinamicos?: string[] | null
+          facciones_involucradas?: string[] | null
+          giros_argumentales?: Json | null
           id?: string
           linked_missions_ids?: string[] | null
           metadata?: Json | null
           mission_parent_id?: string | null
           nivel_recomendado?: string | null
+          objeto_clave?: string[] | null
+          pnj_clave?: string[] | null
+          posibles_rutas?: Json | null
+          recompensas_sugeridas?: Json | null
+          riesgos_escalada?: string[] | null
+          secretos_ocultos?: string[] | null
+          sububicaciones?: string[] | null
           tags?: string[] | null
           tipo?: string | null
-          titulo: string
+          titulo?: string | null
+          tono?: string | null
+          trama_detallada?: string | null
+          ubicacion_principal?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          actos_o_fases?: Json | null
+          conflicto_central?: string | null
+          consecuencias_potenciales?: Json | null
           contenido?: string | null
+          contexto_general?: string | null
           created_at?: string
           descripcion?: string | null
+          detonante?: string | null
           estado?: string
+          eventos_dinamicos?: string[] | null
+          facciones_involucradas?: string[] | null
+          giros_argumentales?: Json | null
           id?: string
           linked_missions_ids?: string[] | null
           metadata?: Json | null
           mission_parent_id?: string | null
           nivel_recomendado?: string | null
+          objeto_clave?: string[] | null
+          pnj_clave?: string[] | null
+          posibles_rutas?: Json | null
+          recompensas_sugeridas?: Json | null
+          riesgos_escalada?: string[] | null
+          secretos_ocultos?: string[] | null
+          sububicaciones?: string[] | null
           tags?: string[] | null
           tipo?: string | null
-          titulo?: string
+          titulo?: string | null
+          tono?: string | null
+          trama_detallada?: string | null
+          ubicacion_principal?: string | null
           updated_at?: string
           user_id?: string
         }
