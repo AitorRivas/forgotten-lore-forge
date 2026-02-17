@@ -8,6 +8,7 @@ import {
   ArrowLeft, Swords, Loader2, Save, Pencil, Eye, Users, Shield,
   Skull, Flame, Zap, Target, MapPin, RefreshCw, X, Link2, Plus, Trash2,
   ChevronDown, BookOpen, Mountain, Bug, BarChart3, Star, Sparkles, Brain, ScrollText, Settings2,
+  Check, Scale,
 } from "lucide-react";
 import {
   Collapsible,
@@ -57,9 +58,12 @@ const EncounterGenerator = () => {
   // UI state
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [revalidating, setRevalidating] = useState(false);
   const [encounter, setEncounter] = useState<any>(null);
+  const [savedEncounterId, setSavedEncounterId] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editedContent, setEditedContent] = useState("");
+  const [validationResult, setValidationResult] = useState<string | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
 
   const avgLevel = partyMembers.length
@@ -178,6 +182,8 @@ const EncounterGenerator = () => {
     setGenerating(true);
     setEncounter(null);
     setEditMode(false);
+    setSavedEncounterId(null);
+    setValidationResult(null);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -233,33 +239,96 @@ const EncounterGenerator = () => {
       const content = editMode ? editedContent : encounter;
       const diffLabel = DIFFICULTY_LABELS[difficultyLevel].label;
 
-      const { error } = await supabase.from("encounters" as any).insert({
-        user_id: user.id,
-        campaign_id: selectedCampaignId || null,
-        tipo: "encuentro",
-        nivel_grupo: avgLevel,
-        numero_personajes: partyMembers.length,
-        dificultad: difficultyLevel,
-        criaturas_json: partyMembers.map((m) => ({ className: m.className, level: m.level })),
-        estrategia_json: { theme: encounterTheme || null, region, specificRequest: specificRequest || null },
-        texto_completo_editable: content,
-        xp_total: 0,
-        tags: [region, diffLabel, encounterTheme].filter(Boolean),
-      } as any);
+      if (savedEncounterId) {
+        // Update existing record
+        const { error } = await supabase.from("encounters" as any).update({
+          texto_completo_editable: content,
+          nivel_grupo: avgLevel,
+          numero_personajes: partyMembers.length,
+          dificultad: difficultyLevel,
+          tags: [region, diffLabel, encounterTheme].filter(Boolean),
+        } as any).eq("id", savedEncounterId);
+        if (error) throw error;
 
-      if (error) throw error;
+        // Apply edits to the live encounter view
+        if (editMode) {
+          setEncounter(editedContent);
+          setEditMode(false);
+        }
+        toast.success("¡Cambios guardados!");
+      } else {
+        // Insert new record
+        const { data, error } = await supabase.from("encounters" as any).insert({
+          user_id: user.id,
+          campaign_id: selectedCampaignId || null,
+          tipo: "encuentro",
+          nivel_grupo: avgLevel,
+          numero_personajes: partyMembers.length,
+          dificultad: difficultyLevel,
+          criaturas_json: partyMembers.map((m) => ({ className: m.className, level: m.level })),
+          estrategia_json: { theme: encounterTheme || null, region, specificRequest: specificRequest || null },
+          texto_completo_editable: content,
+          xp_total: 0,
+          tags: [region, diffLabel, encounterTheme].filter(Boolean),
+        } as any).select("id").single();
+        if (error) throw error;
+        setSavedEncounterId((data as any)?.id || null);
 
-      toast.success(
-        selectedCampaignId
-          ? "¡Encuentro guardado y vinculado a la campaña!"
-          : "¡Encuentro guardado en tu biblioteca!"
-      );
+        if (editMode) {
+          setEncounter(editedContent);
+          setEditMode(false);
+        }
+        toast.success(
+          selectedCampaignId
+            ? "¡Encuentro guardado y vinculado a la campaña!"
+            : "¡Encuentro guardado en tu biblioteca!"
+        );
+      }
     } catch (e: any) {
       toast.error(e.message || "Error guardando");
     } finally {
       setSaving(false);
     }
-  }, [encounter, editMode, editedContent, selectedCampaignId, avgLevel, partyMembers, difficultyLevel, region, encounterTheme, specificRequest]);
+  }, [encounter, editMode, editedContent, selectedCampaignId, avgLevel, partyMembers, difficultyLevel, region, encounterTheme, specificRequest, savedEncounterId]);
+
+  const revalidateBalance = useCallback(async () => {
+    const content = editMode ? editedContent : encounter;
+    if (!content) return;
+    setRevalidating(true);
+    setValidationResult(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/revalidate-encounter`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            encounterText: content,
+            partyMembers: partyMembers.map((m) => ({ className: m.className, level: m.level })),
+            avgLevel,
+            partySize: partyMembers.length,
+            difficulty: difficultyLevel,
+            difficultyLabel: DIFFICULTY_LABELS[difficultyLevel].label,
+          }),
+        }
+      );
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || "Error revalidando");
+      }
+      const data = await resp.json();
+      setValidationResult(data.validation_markdown);
+      toast.success("Revalidación completada");
+    } catch (e: any) {
+      toast.error(e.message || "Error revalidando equilibrio");
+    } finally {
+      setRevalidating(false);
+    }
+  }, [encounter, editMode, editedContent, partyMembers, avgLevel, difficultyLevel]);
 
   const markdownContent = encounter || "";
 
@@ -474,15 +543,23 @@ const EncounterGenerator = () => {
                     <Pencil size={14} /> Editar Manualmente
                   </button>
                   <button
+                    onClick={revalidateBalance}
+                    disabled={revalidating || generating}
+                    className="flex items-center gap-1.5 px-4 py-2 border border-border rounded text-sm text-foreground hover:border-gold/50 transition-colors disabled:opacity-50"
+                  >
+                    {revalidating ? <Loader2 size={14} className="animate-spin" /> : <Scale size={14} />}
+                    {revalidating ? "Revalidando..." : "Revalidar Equilibrio"}
+                  </button>
+                  <button
                     onClick={saveEncounter}
                     disabled={saving || generating}
                     className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-display hover:bg-gold-dark transition-colors disabled:opacity-50"
                   >
                     {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                    {saving ? "Guardando..." : "Guardar en Biblioteca"}
+                    {saving ? "Guardando..." : savedEncounterId ? "Actualizar" : "Guardar en Biblioteca"}
                   </button>
                   <button
-                    onClick={() => { setEncounter(null); setEditMode(false); }}
+                    onClick={() => { setEncounter(null); setEditMode(false); setSavedEncounterId(null); setValidationResult(null); }}
                     className="flex items-center gap-1.5 px-3 py-2 border border-border rounded text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <X size={14} /> Descartar
@@ -536,6 +613,34 @@ const EncounterGenerator = () => {
                         </Collapsible>
                       );
                     })}
+                  </div>
+                )}
+
+                {/* Validation result panel */}
+                {validationResult && (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="ornate-border rounded-lg p-6 parchment-bg">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-display text-lg text-gold flex items-center gap-2">
+                        <Scale size={18} /> Resultado de Revalidación
+                      </h3>
+                      <button
+                        onClick={() => setValidationResult(null)}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <div className="prose-fantasy text-sm">
+                      <ReactMarkdown>{validationResult}</ReactMarkdown>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Saved indicator */}
+                {savedEncounterId && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground justify-end">
+                    <Check size={12} className="text-green-400" />
+                    <span>Guardado en biblioteca</span>
                   </div>
                 )}
               </motion.div>
