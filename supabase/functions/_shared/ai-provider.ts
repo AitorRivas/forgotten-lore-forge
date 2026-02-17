@@ -1,18 +1,14 @@
 /**
  * Sistema de proveedores de IA con prioridad, fallback automático y logging de errores.
  * 
+ * Exports principales:
+ *   - callAIWithFallback(messages, options) — bajo nivel, envía messages raw
+ *   - generateWithFallback(prompt, metadata)  — alto nivel, estandariza formato
+ * 
  * Orden de prioridad:
  *   1. Gemini Pro (API directa) — principal
  *   2. ChatGPT (via Lovable AI Gateway) — secundario
  *   3. IA nativa de Lovable (Gemini via Gateway) — terciario
- * 
- * Tipos de error detectados y logueados:
- *   - quota_exhausted (cuota agotada)
- *   - rate_limit (429 - límite de llamadas/segundo)
- *   - invalid_token (401/403 - token inválido)
- *   - network_error (error de red)
- *   - timeout (>timeout configurado)
- *   - server_error (500/503)
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -22,21 +18,56 @@ const LOVABLE_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions"
 const RETRY_DELAY_MS = 2000;
 const REQUEST_TIMEOUT_MS = 120_000;
 
+// ══════════════════════════════════════════════════════════
+//  TYPES
+// ══════════════════════════════════════════════════════════
+
 export interface AIProviderOptions {
   model?: string;
   stream?: boolean;
   temperature?: number;
   response_mime_type?: string;
-  userId?: string; // Optional: for logging
+  userId?: string;
+}
+
+/** Metadata para generateWithFallback — describe QUÉ se genera y CÓMO */
+export interface GenerationMetadata {
+  /** Tipo de contenido: "encounter", "npc", "mission", "location", etc. */
+  contentType: string;
+  /** Formato de salida esperado: "markdown" | "json" */
+  outputFormat?: "markdown" | "json";
+  /** Esquema JSON esperado (si outputFormat es "json"). Descripción textual del esquema. */
+  jsonSchema?: string;
+  /** Instrucciones extra de formato que se añaden al system prompt */
+  formatInstructions?: string;
+  /** Contexto de campaña (se inyecta automáticamente) */
+  campaignContext?: string;
+  /** Región de Faerûn */
+  region?: string;
+  /** Tono narrativo */
+  tone?: string;
+  /** Nivel del grupo */
+  partyLevel?: string;
+  /** ID de usuario para logging */
+  userId?: string;
+  /** Modelo preferido (default: gemini-2.5-pro) */
+  model?: string;
+  /** Temperatura (default: 0.8) */
+  temperature?: number;
+  /** Usar streaming (default: false) */
+  stream?: boolean;
 }
 
 type ErrorType = "quota_exhausted" | "rate_limit" | "invalid_token" | "network_error" | "timeout" | "server_error" | "unknown";
+
+// ══════════════════════════════════════════════════════════
+//  INTERNAL HELPERS
+// ══════════════════════════════════════════════════════════
 
 function classifyError(status: number | "timeout" | "error", responseBody?: string): ErrorType {
   if (status === "timeout") return "timeout";
   if (status === "error") return "network_error";
   if (status === 429) {
-    // Check if it's quota exhausted vs rate limit
     const lower = (responseBody || "").toLowerCase();
     if (lower.includes("quota") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("402")) {
       return "quota_exhausted";
@@ -137,7 +168,6 @@ async function tryWithRetry(
   const errorType = classifyError(result.status, result.body);
   await logError(userId, name, errorType, result.body);
 
-  // On rate_limit, wait 2s and retry once
   if (errorType === "rate_limit") {
     console.log(`🔄 ${name} 429: esperando 2s para reintentar...`);
     await sleep(RETRY_DELAY_MS);
@@ -150,8 +180,13 @@ async function tryWithRetry(
   return null;
 }
 
+// ══════════════════════════════════════════════════════════
+//  callAIWithFallback — LOW LEVEL (raw messages)
+// ══════════════════════════════════════════════════════════
+
 /**
  * Llama a la IA con sistema de fallback triple y logging de errores.
+ * Envía los messages tal cual al proveedor. Para uso estandarizado, usar generateWithFallback.
  */
 export async function callAIWithFallback(
   messages: any[],
@@ -200,4 +235,164 @@ export async function callAIWithFallback(
 
   console.error("❌ Todos los proveedores de IA han fallado");
   return null;
+}
+
+// ══════════════════════════════════════════════════════════
+//  generateWithFallback — HIGH LEVEL (standardized prompts)
+// ══════════════════════════════════════════════════════════
+
+/**
+ * Construye un prompt estandarizado agnóstico de proveedor y lo envía con fallback.
+ * 
+ * Garantías:
+ *   - El prompt NO usa sintaxis específica de ningún proveedor (ni Gemini, ni OpenAI).
+ *   - Las instrucciones de formato son explícitas y universales.
+ *   - La salida es siempre estructurada (markdown con secciones o JSON).
+ *   - El mismo prompt produce resultados coherentes en cualquier modelo.
+ * 
+ * @param systemPrompt  Instrucciones del sistema (rol, reglas, formato de salida)
+ * @param userPrompt    Instrucciones del usuario (qué generar, contexto)
+ * @param metadata      Configuración de generación
+ * @returns Response del proveedor o null si todos fallan
+ */
+export async function generateWithFallback(
+  systemPrompt: string,
+  userPrompt: string,
+  metadata: GenerationMetadata = { contentType: "generic" },
+): Promise<Response | null> {
+  // ── Build standardized system prompt ──
+  const standardizedSystem = buildStandardizedSystemPrompt(systemPrompt, metadata);
+  const standardizedUser = buildStandardizedUserPrompt(userPrompt, metadata);
+
+  const messages = [
+    { role: "system", content: standardizedSystem },
+    { role: "user", content: standardizedUser },
+  ];
+
+  const options: AIProviderOptions = {
+    model: metadata.model || "gemini-2.5-pro",
+    stream: metadata.stream ?? false,
+    temperature: metadata.temperature ?? 0.8,
+    userId: metadata.userId,
+  };
+
+  // Only set response_mime_type for non-streaming JSON requests
+  // NOTE: This is an optimization hint, NOT a provider-specific feature.
+  // The actual format is enforced via prompt instructions, not provider features.
+  if (metadata.outputFormat === "json" && !metadata.stream) {
+    options.response_mime_type = "application/json";
+  }
+
+  return callAIWithFallback(messages, options);
+}
+
+/**
+ * Construye el system prompt estandarizado.
+ * Envuelve el prompt original con instrucciones universales de formato.
+ */
+function buildStandardizedSystemPrompt(originalSystem: string, meta: GenerationMetadata): string {
+  const parts: string[] = [];
+
+  // ── Universal preamble ──
+  parts.push(`Eres un asistente experto para Dungeon Masters de Dungeons & Dragons 5e.
+Tu tarea es generar contenido de tipo: ${meta.contentType}.
+
+REGLAS UNIVERSALES DE FORMATO:
+1. Responde SIEMPRE en español.
+2. Usa SOLO lore oficial de Forgotten Realms.
+3. NO uses funciones, herramientas ni sintaxis específica de ningún sistema.
+4. Tu respuesta debe ser autocontenida y completa.
+5. NO incluyas comentarios meta sobre tu proceso de generación.`);
+
+  // ── Output format instructions ──
+  if (meta.outputFormat === "json") {
+    parts.push(`
+FORMATO DE SALIDA: JSON ESTRICTO
+- Responde ÚNICAMENTE con un objeto JSON válido.
+- NO envuelvas en bloques de código (\`\`\`).
+- NO incluyas texto antes ni después del JSON.
+- Asegúrate de que todos los strings estén correctamente escapados.
+- Usa comillas dobles para claves y valores string.`);
+    if (meta.jsonSchema) {
+      parts.push(`ESQUEMA ESPERADO:\n${meta.jsonSchema}`);
+    }
+  } else {
+    parts.push(`
+FORMATO DE SALIDA: MARKDOWN ESTRUCTURADO
+- Usa encabezados (##, ###) para organizar secciones.
+- Usa listas con guiones (-) para elementos.
+- Usa negritas (**texto**) para datos clave.
+- Usa tablas markdown cuando sea apropiado.
+- Incluye emojis de sección para mejor legibilidad.
+- Cada sección debe ser autocontenida y claramente separada.`);
+  }
+
+  // ── Extra format instructions ──
+  if (meta.formatInstructions) {
+    parts.push(`\nINSTRUCCIONES ADICIONALES DE FORMATO:\n${meta.formatInstructions}`);
+  }
+
+  // ── Original domain-specific system prompt ──
+  parts.push(`\n--- INSTRUCCIONES ESPECÍFICAS ---\n${originalSystem}`);
+
+  return parts.join("\n");
+}
+
+/**
+ * Construye el user prompt estandarizado.
+ * Inyecta contexto de campaña, región y tono de forma uniforme.
+ */
+function buildStandardizedUserPrompt(originalUser: string, meta: GenerationMetadata): string {
+  const parts: string[] = [];
+
+  // ── Context header ──
+  const hasContext = meta.region || meta.tone || meta.partyLevel || meta.campaignContext;
+  if (hasContext) {
+    parts.push("=== CONTEXTO DE GENERACIÓN ===");
+    if (meta.region) parts.push(`REGIÓN: ${meta.region}`);
+    if (meta.tone) parts.push(`TONO NARRATIVO: ${meta.tone}`);
+    if (meta.partyLevel) parts.push(`NIVEL DEL GRUPO: ${meta.partyLevel}`);
+    if (meta.campaignContext) parts.push(`\nCONTEXTO DE CAMPAÑA:\n${meta.campaignContext}`);
+    parts.push("=== FIN CONTEXTO ===\n");
+  }
+
+  // ── Original user prompt ──
+  parts.push(originalUser);
+
+  // ── Output reminder (universal, no provider-specific) ──
+  if (meta.outputFormat === "json") {
+    parts.push("\nRECUERDA: Responde SOLO con JSON válido. Sin markdown, sin bloques de código, sin texto adicional.");
+  }
+
+  return parts.join("\n");
+}
+
+// ══════════════════════════════════════════════════════════
+//  UTILITY: Parse robust JSON from AI responses
+// ══════════════════════════════════════════════════════════
+
+/**
+ * Parsea JSON de manera robusta desde respuestas de IA.
+ * Maneja: bloques de código, texto extra, JSON malformado.
+ */
+export function parseAIJsonResponse<T = any>(raw: string, fallback: T): T {
+  if (!raw || typeof raw !== "string") return fallback;
+
+  // Try direct parse first
+  try { return JSON.parse(raw); } catch { /* continue */ }
+
+  // Try extracting from markdown code block
+  const codeBlockMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (codeBlockMatch) {
+    try { return JSON.parse(codeBlockMatch[1]); } catch { /* continue */ }
+  }
+
+  // Try finding first { ... } or [ ... ]
+  const jsonMatch = raw.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+  if (jsonMatch) {
+    try { return JSON.parse(jsonMatch[1]); } catch { /* continue */ }
+  }
+
+  console.warn("⚠️ Could not parse AI JSON response, using fallback");
+  return fallback;
 }

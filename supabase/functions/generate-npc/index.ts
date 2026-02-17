@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { callAIWithFallback } from "../_shared/ai-provider.ts";
+import { generateWithFallback } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -125,13 +125,12 @@ serve(async (req) => {
       userPrompt += `\n\nINSTRUCCIONES DEL USUARIO:\n${customPrompt}`;
     }
 
-    const response = await callAIWithFallback(
-      [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
-      { model: "gemini-2.5-pro", stream: true }
-    );
+    const response = await generateWithFallback(SYSTEM_PROMPT, userPrompt, {
+      contentType: "npc",
+      outputFormat: "markdown",
+      stream: true,
+      model: "gemini-2.5-pro",
+    });
 
     if (!response) {
       return new Response(
