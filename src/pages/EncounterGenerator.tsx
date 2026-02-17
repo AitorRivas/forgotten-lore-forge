@@ -227,28 +227,27 @@ const EncounterGenerator = () => {
     if (!encounter) return;
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Debes iniciar sesión para guardar");
+
       const content = editMode ? editedContent : encounter;
+      const diffLabel = DIFFICULTY_LABELS[difficultyLevel].label;
 
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/format-and-store`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            content,
-            content_type: "encounter",
-            campaign_id: selectedCampaignId || undefined,
-          }),
-        }
-      );
+      const { error } = await supabase.from("encounters" as any).insert({
+        user_id: user.id,
+        campaign_id: selectedCampaignId || null,
+        tipo: "encuentro",
+        nivel_grupo: avgLevel,
+        numero_personajes: partyMembers.length,
+        dificultad: difficultyLevel,
+        criaturas_json: partyMembers.map((m) => ({ className: m.className, level: m.level })),
+        estrategia_json: { theme: encounterTheme || null, region, specificRequest: specificRequest || null },
+        texto_completo_editable: content,
+        xp_total: 0,
+        tags: [region, diffLabel, encounterTheme].filter(Boolean),
+      } as any);
 
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err.error || "Error guardando encuentro");
-      }
+      if (error) throw error;
 
       toast.success(
         selectedCampaignId
@@ -260,7 +259,7 @@ const EncounterGenerator = () => {
     } finally {
       setSaving(false);
     }
-  }, [encounter, editMode, editedContent, selectedCampaignId]);
+  }, [encounter, editMode, editedContent, selectedCampaignId, avgLevel, partyMembers, difficultyLevel, region, encounterTheme, specificRequest]);
 
   const markdownContent = encounter || "";
 

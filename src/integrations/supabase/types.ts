@@ -62,6 +62,68 @@ export type Database = {
         }
         Relationships: []
       }
+      encounters: {
+        Row: {
+          campaign_id: string | null
+          created_at: string
+          criaturas_json: Json | null
+          dificultad: number
+          estrategia_json: Json | null
+          fecha_creacion: string
+          id: string
+          nivel_grupo: number
+          numero_personajes: number
+          tags: string[] | null
+          texto_completo_editable: string
+          tipo: string
+          updated_at: string
+          user_id: string
+          xp_total: number | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string
+          criaturas_json?: Json | null
+          dificultad: number
+          estrategia_json?: Json | null
+          fecha_creacion?: string
+          id?: string
+          nivel_grupo: number
+          numero_personajes: number
+          tags?: string[] | null
+          texto_completo_editable: string
+          tipo?: string
+          updated_at?: string
+          user_id: string
+          xp_total?: number | null
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string
+          criaturas_json?: Json | null
+          dificultad?: number
+          estrategia_json?: Json | null
+          fecha_creacion?: string
+          id?: string
+          nivel_grupo?: number
+          numero_personajes?: number
+          tags?: string[] | null
+          texto_completo_editable?: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+          xp_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "encounters_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_content: {
         Row: {
           campaign_id: string | null
