@@ -7,7 +7,13 @@ import ReactMarkdown from "react-markdown";
 import {
   ArrowLeft, Swords, Loader2, Save, Pencil, Eye, Users, Shield,
   Skull, Flame, Zap, Target, MapPin, RefreshCw, X, Link2, Plus, Trash2,
+  ChevronDown, BookOpen, Mountain, Bug, BarChart3, Star, Sparkles, Brain, ScrollText, Settings2,
 } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
 
@@ -81,7 +87,92 @@ const EncounterGenerator = () => {
     fetchCampaigns();
   }, []);
 
-  // No longer needed — encounter_markdown comes as plain Markdown from the edge function
+  // Section definitions for collapsible display
+  const SECTION_DEFS: { key: string; pattern: RegExp; label: string; icon: React.ElementType; defaultOpen?: boolean }[] = [
+    { key: "resumen", pattern: /^##\s*📊\s*Resumen del Encuentro/m, label: "Resumen del Encuentro", icon: BarChart3, defaultOpen: true },
+    { key: "analisis", pattern: /^##\s*👥\s*Análisis del Grupo/m, label: "Contexto Narrativo", icon: BookOpen, defaultOpen: true },
+    { key: "escenario", pattern: /^##\s*🗺️\s*Descripción del Escenario/m, label: "Terreno", icon: Mountain },
+    { key: "criaturas", pattern: /^##\s*🐉\s*Criaturas del Encuentro/m, label: "Criaturas", icon: Bug, defaultOpen: true },
+    { key: "equilibrio", pattern: /^##\s*⚖️\s*Validación de Equilibrio/m, label: "Estadísticas de CR / XP Total", icon: Target },
+    { key: "habilidades", pattern: /habilidades especiales/im, label: "Habilidades", icon: Star },
+    { key: "hechizos", pattern: /hechizos/im, label: "Hechizos", icon: Sparkles },
+    { key: "rasgos", pattern: /rasgos especiales/im, label: "Rasgos Especiales", icon: ScrollText },
+    { key: "estrategia", pattern: /^##\s*🎯\s*Estrategia Táctica/m, label: "Estrategia del Enemigo", icon: Brain },
+    { key: "plan", pattern: /Plan de los 3 Primeros Asaltos/m, label: "Plan Táctico (3 Asaltos)", icon: Swords },
+    { key: "ajuste", pattern: /Ajustes recomendados/im, label: "Ajuste de Dificultad", icon: Settings2 },
+    { key: "recompensas", pattern: /^##\s*💰\s*Recompensas/m, label: "Recompensas", icon: Shield },
+    { key: "notas", pattern: /^##\s*📝\s*Notas del DM/m, label: "Notas del DM", icon: Pencil },
+  ];
+
+  const parseEncounterSections = useCallback((md: string) => {
+    if (!md) return [];
+
+    // Find all ## headings and split by them
+    const headingRegex = /^(## .+)$/gm;
+    const matches: { heading: string; start: number }[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = headingRegex.exec(md)) !== null) {
+      matches.push({ heading: m[1], start: m.index });
+    }
+
+    if (matches.length === 0) {
+      return [{ key: "full", label: "Encuentro Completo", icon: Swords, content: md, defaultOpen: true }];
+    }
+
+    // Extract title (everything before first ##)
+    const titleContent = md.slice(0, matches[0].start).trim();
+    const sections: { key: string; label: string; icon: React.ElementType; content: string; defaultOpen?: boolean }[] = [];
+
+    if (titleContent) {
+      sections.push({ key: "titulo", label: "Título", icon: Swords, content: titleContent, defaultOpen: true });
+    }
+
+    for (let i = 0; i < matches.length; i++) {
+      const start = matches[i].start;
+      const end = i + 1 < matches.length ? matches[i + 1].start : md.length;
+      const sectionContent = md.slice(start, end).trim();
+      const heading = matches[i].heading;
+
+      // Try to match to a known section
+      const matched = SECTION_DEFS.find((s) => s.pattern.test(heading));
+      if (matched) {
+        sections.push({
+          key: matched.key,
+          label: matched.label,
+          icon: matched.icon,
+          content: sectionContent,
+          defaultOpen: matched.defaultOpen,
+        });
+      } else {
+        // Fallback: use heading text as label
+        const cleanLabel = heading.replace(/^##\s*/, "").replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "").trim();
+        sections.push({
+          key: `section-${i}`,
+          label: cleanLabel || `Sección ${i + 1}`,
+          icon: ScrollText,
+          content: sectionContent,
+        });
+      }
+    }
+
+    return sections;
+  }, []);
+
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+
+  const toggleSection = (key: string) => {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // Initialize open sections when encounter changes
+  useEffect(() => {
+    if (encounter) {
+      const sections = parseEncounterSections(encounter);
+      const initial: Record<string, boolean> = {};
+      sections.forEach((s) => { initial[s.key] = s.defaultOpen ?? false; });
+      setOpenSections(initial);
+    }
+  }, [encounter, parseEncounterSections]);
 
   const generateEncounter = useCallback(async () => {
     setGenerating(true);
@@ -360,71 +451,94 @@ const EncounterGenerator = () => {
           <div className="lg:col-span-2">
             {encounter ? (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                <div className="ornate-border rounded-lg p-6 parchment-bg">
-                  {/* Toolbar */}
-                  <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setEditMode(false)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-display transition-colors ${
-                          !editMode ? "bg-gold/20 text-gold border border-gold/40" : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        <Eye size={13} /> Vista
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditMode(true);
-                          setEditedContent(markdownContent);
-                        }}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-display transition-colors ${
-                          editMode ? "bg-gold/20 text-gold border border-gold/40" : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        <Pencil size={13} /> Editar
-                      </button>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={generateEncounter}
-                        disabled={generating}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-accent border border-border rounded text-xs text-foreground hover:border-gold/50 transition-colors disabled:opacity-50"
-                      >
-                        <RefreshCw size={13} /> Regenerar
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEncounter(null);
-                          setEditMode(false);
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <X size={13} /> Descartar
-                      </button>
-                      <button
-                        onClick={saveEncounter}
-                        disabled={saving || generating}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded text-xs font-display hover:bg-gold-dark transition-colors disabled:opacity-50"
-                      >
-                        {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-                        {saving ? "Guardando..." : "Guardar en Biblioteca"}
-                      </button>
-                    </div>
-                  </div>
+                {/* Action buttons */}
+                <div className="flex flex-wrap gap-2 justify-end">
+                  <button
+                    onClick={generateEncounter}
+                    disabled={generating}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-accent border border-border rounded text-sm text-foreground hover:border-gold/50 transition-colors disabled:opacity-50"
+                  >
+                    {generating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                    Regenerar Encuentro
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditMode(!editMode);
+                      if (!editMode) setEditedContent(markdownContent);
+                    }}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded text-sm transition-colors border ${
+                      editMode
+                        ? "bg-gold/20 text-gold border-gold/40"
+                        : "border-border text-foreground hover:border-gold/50"
+                    }`}
+                  >
+                    <Pencil size={14} /> Editar Manualmente
+                  </button>
+                  <button
+                    onClick={saveEncounter}
+                    disabled={saving || generating}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-display hover:bg-gold-dark transition-colors disabled:opacity-50"
+                  >
+                    {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                    {saving ? "Guardando..." : "Guardar en Biblioteca"}
+                  </button>
+                  <button
+                    onClick={() => { setEncounter(null); setEditMode(false); }}
+                    className="flex items-center gap-1.5 px-3 py-2 border border-border rounded text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X size={14} /> Descartar
+                  </button>
+                </div>
 
-                  {/* Content */}
-                  {editMode ? (
+                {/* Edit mode */}
+                {editMode ? (
+                  <div className="ornate-border rounded-lg p-6 parchment-bg">
                     <textarea
                       value={editedContent}
                       onChange={(e) => setEditedContent(e.target.value)}
                       className="w-full min-h-[600px] bg-secondary/50 border border-border rounded p-4 text-sm text-foreground font-mono leading-relaxed focus:outline-none focus:border-gold/50 transition-colors resize-y"
                     />
-                  ) : (
-                    <div className="prose-fantasy">
-                      <ReactMarkdown>{markdownContent}</ReactMarkdown>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  /* Collapsible sections */
+                  <div className="space-y-2">
+                    {parseEncounterSections(markdownContent).map((section) => {
+                      const Icon = section.icon;
+                      const isOpen = openSections[section.key] ?? section.defaultOpen ?? false;
+                      return (
+                        <Collapsible
+                          key={section.key}
+                          open={isOpen}
+                          onOpenChange={() => toggleSection(section.key)}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <button className="w-full ornate-border rounded-lg parchment-bg px-5 py-3 flex items-center justify-between hover:border-gold/50 transition-all group">
+                              <div className="flex items-center gap-3">
+                                <Icon size={18} className="text-gold" />
+                                <span className="font-display text-sm text-foreground group-hover:text-gold transition-colors">
+                                  {section.label}
+                                </span>
+                              </div>
+                              <ChevronDown
+                                size={16}
+                                className={`text-muted-foreground transition-transform duration-200 ${
+                                  isOpen ? "rotate-180" : ""
+                                }`}
+                              />
+                            </button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="ornate-border rounded-b-lg border-t-0 px-5 py-4 parchment-bg -mt-1">
+                              <div className="prose-fantasy text-sm">
+                                <ReactMarkdown>{section.content}</ReactMarkdown>
+                              </div>
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      );
+                    })}
+                  </div>
+                )}
               </motion.div>
             ) : (
               <div className="ornate-border rounded-lg p-16 parchment-bg text-center">
@@ -433,8 +547,8 @@ const EncounterGenerator = () => {
                   Generador de Encuentros
                 </h3>
                 <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                  Configura tu grupo, elige la dificultad y genera un encuentro híbrido
-                  con combate, diplomacia e investigación para D&D 5e.
+                  Configura tu grupo, elige la dificultad y genera un encuentro táctico
+                  con criaturas oficiales, estrategia detallada y validación de equilibrio para D&D 5e.
                 </p>
               </div>
             )}
