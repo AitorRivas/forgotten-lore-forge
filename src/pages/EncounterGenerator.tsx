@@ -9,7 +9,7 @@ import {
   ArrowLeft, Swords, Loader2, Save, Pencil, Eye, Users, Shield,
   Skull, Flame, Zap, Target, MapPin, RefreshCw, X, Link2, Plus, Trash2,
   ChevronDown, BookOpen, Mountain, Bug, BarChart3, Star, Sparkles, Brain, ScrollText, Settings2,
-  Check, Scale, Info,
+  Check, Scale, Info, AlertTriangle,
 } from "lucide-react";
 import {
   Collapsible,
@@ -67,6 +67,7 @@ const EncounterGenerator = () => {
   const [editedContent, setEditedContent] = useState("");
   const [validationResult, setValidationResult] = useState<string | null>(null);
   const [providerType, setProviderType] = useState<"primary" | "alternative" | null>(null);
+  const [serviceUnavailable, setServiceUnavailable] = useState(false);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
 
   const avgLevel = partyMembers.length
@@ -203,6 +204,7 @@ const EncounterGenerator = () => {
     setSavedEncounterId(null);
     setValidationResult(null);
     setProviderType(null);
+    setServiceUnavailable(false);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -243,7 +245,11 @@ const EncounterGenerator = () => {
       setProviderType(data.provider || "primary");
       toast.success("¡Encuentro generado!");
     } catch (e: any) {
-      toast.error(e.message || "Error generando encuentro");
+      if (e.message?.includes("saturados") || e.message?.includes("no disponible") || e.message?.includes("429")) {
+        setServiceUnavailable(true);
+      } else {
+        toast.error(e.message || "Error generando encuentro");
+      }
     } finally {
       setGenerating(false);
     }
@@ -547,7 +553,25 @@ const EncounterGenerator = () => {
 
           {/* Right panel - Results */}
           <div className="lg:col-span-2">
-            {encounter ? (
+            {serviceUnavailable && !encounter ? (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ornate-border rounded-lg p-10 parchment-bg text-center space-y-4">
+                <AlertTriangle className="mx-auto text-amber-400" size={40} />
+                <h3 className="font-display text-lg text-foreground">
+                  Servicio temporalmente no disponible
+                </h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  El servicio de generación está temporalmente no disponible. Inténtalo en unos minutos.
+                </p>
+                <button
+                  onClick={generateEncounter}
+                  disabled={generating}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground font-display rounded hover:bg-gold-dark transition-colors disabled:opacity-50"
+                >
+                  {generating ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                  Reintentar
+                </button>
+              </motion.div>
+            ) : encounter ? (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
                 {/* Provider indicator */}
                 {providerType === "alternative" && (
