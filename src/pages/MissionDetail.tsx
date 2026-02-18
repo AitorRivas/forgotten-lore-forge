@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import ReactMarkdown from "react-markdown";
 import {
   ArrowLeft, ChevronRight, ChevronDown, Swords, Target, Plus,
   Link2, Pencil, Save, Loader2, Scroll, Check, Archive, Trash2, Theater,
@@ -80,14 +79,23 @@ const MissionDetail = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateSub, setShowCreateSub] = useState(false);
 
-  // Editing
-  const [editingContent, setEditingContent] = useState(false);
-  const [editContent, setEditContent] = useState("");
-  const [savingContent, setSavingContent] = useState(false);
+  // Field editing
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [savingField, setSavingField] = useState(false);
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     info: true,
-    contenido: true,
+    contexto: true,
+    detonante: false,
+    conflicto: false,
+    actos: false,
+    enfoques: false,
+    giros: false,
+    consecuencias: false,
+    secretos: false,
+    recompensas: false,
+    notas_dm: false,
     submisiones: false,
     escenas: false,
     encuentros: false,
@@ -125,7 +133,6 @@ const MissionDetail = () => {
       pnj_clave: m.pnj_clave || [],
     });
 
-    // Breadcrumb
     const crumbs: { id: string; titulo: string | null }[] = [];
     let currentParentId = m.mission_parent_id;
     while (currentParentId) {
@@ -137,7 +144,6 @@ const MissionDetail = () => {
     }
     setBreadcrumb(crumbs);
 
-    // Linked
     if (m.linked_missions_ids?.length > 0) {
       const { data: linked } = await supabase.from("misiones").select("id, titulo, estado").in("id", m.linked_missions_ids);
       setLinkedMisions((linked as LinkedMision[]) || []);
@@ -178,17 +184,17 @@ const MissionDetail = () => {
     }
   };
 
-  const handleSaveContent = async () => {
+  const saveField = async (field: string, value: any) => {
     if (!mision) return;
-    setSavingContent(true);
-    const { error } = await supabase.from("misiones").update({ contenido: editContent }).eq("id", mision.id);
+    setSavingField(true);
+    const { error } = await supabase.from("misiones").update({ [field]: value }).eq("id", mision.id);
     if (error) toast.error("Error guardando");
     else {
-      toast.success("Contenido guardado");
-      setMision({ ...mision, contenido: editContent });
-      setEditingContent(false);
+      toast.success("Guardado");
+      setMision({ ...mision, [field]: value });
+      setEditingField(null);
     }
-    setSavingContent(false);
+    setSavingField(false);
   };
 
   if (loading || !mision) {
@@ -220,10 +226,8 @@ const MissionDetail = () => {
             <span className="text-foreground truncate">{displayTitle}</span>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(mision.mission_parent_id ? `/mission/${mision.mission_parent_id}` : "/dashboard")}
-              className="text-muted-foreground hover:text-foreground transition-colors p-1"
-            >
+            <button onClick={() => navigate(mision.mission_parent_id ? `/mission/${mision.mission_parent_id}` : "/dashboard")}
+              className="text-muted-foreground hover:text-foreground transition-colors p-1">
               <ArrowLeft size={20} />
             </button>
             <h1 className="font-display text-lg sm:text-xl text-gold text-glow truncate">{displayTitle}</h1>
@@ -231,32 +235,25 @@ const MissionDetail = () => {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-4">
+      <main className="max-w-4xl mx-auto px-4 py-6 space-y-3">
         {/* INFO */}
-        <SectionCard title="Información General" icon={Scroll} open={expandedSections.info} onToggle={() => toggleSection("info")}>
+        <SectionCard title="Información General" icon={Scroll} sectionKey="info" expanded={expandedSections} toggle={toggleSection}>
           <div className="flex flex-wrap gap-2 mb-4">
             <span className={`text-xs px-2 py-1 rounded capitalize ${ESTADO_BADGE[mision.estado] || "bg-secondary text-muted-foreground"}`}>{mision.estado}</span>
             {mision.nivel_recomendado && <span className="text-xs bg-secondary text-muted-foreground px-2 py-1 rounded">Nivel {mision.nivel_recomendado}</span>}
             {mision.tipo && <span className="text-xs bg-secondary text-muted-foreground px-2 py-1 rounded capitalize">{mision.tipo}</span>}
             {mision.tono && <span className="text-xs bg-secondary text-muted-foreground px-2 py-1 rounded capitalize">{mision.tono}</span>}
           </div>
-
           {mision.ubicacion_principal && (
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-3">
-              <MapPin size={14} className="text-gold shrink-0" />
-              <span>{mision.ubicacion_principal}</span>
+              <MapPin size={14} className="text-gold shrink-0" /><span>{mision.ubicacion_principal}</span>
             </div>
           )}
-
           {mision.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-4">
-              {mision.tags.map(tag => (
-                <span key={tag} className="text-xs bg-secondary/70 text-muted-foreground px-2 py-0.5 rounded">{tag}</span>
-              ))}
+              {mision.tags.map(tag => <span key={tag} className="text-xs bg-secondary/70 text-muted-foreground px-2 py-0.5 rounded">{tag}</span>)}
             </div>
           )}
-
-          {/* Status actions */}
           <div className="flex flex-wrap gap-2">
             {mision.estado !== "completada" && (
               <button onClick={() => updateEstado("completada")} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border hover:border-green-500/50 transition-colors">
@@ -279,49 +276,126 @@ const MissionDetail = () => {
           </div>
         </SectionCard>
 
-        {/* CONTENIDO NARRATIVO */}
-        <SectionCard title="Contenido Narrativo" icon={BookOpen} open={expandedSections.contenido} onToggle={() => toggleSection("contenido")}>
-          {mision.contenido ? (
-            <div>
-              {editingContent ? (
-                <div className="space-y-3">
-                  <textarea
-                    value={editContent}
-                    onChange={e => setEditContent(e.target.value)}
-                    rows={16}
-                    className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-foreground text-sm focus:outline-none focus:border-gold transition-colors resize-y font-mono"
-                  />
-                  <div className="flex gap-2">
-                    <button onClick={() => setEditingContent(false)} className="flex-1 border border-border text-foreground text-sm py-2 rounded-lg hover:bg-secondary transition-colors">
-                      Cancelar
-                    </button>
-                    <button onClick={handleSaveContent} disabled={savingContent} className="flex-1 bg-primary text-primary-foreground text-sm py-2 rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5">
-                      {savingContent ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                      Guardar
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <button
-                    onClick={() => { setEditContent(mision.contenido || ""); setEditingContent(true); }}
-                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-gold mb-3 transition-colors"
-                  >
-                    <Pencil size={12} /> Editar contenido
-                  </button>
-                  <div className="prose prose-invert prose-sm max-w-none text-foreground prose-headings:text-gold prose-headings:font-display prose-strong:text-foreground/90">
-                    <ReactMarkdown>{mision.contenido}</ReactMarkdown>
-                  </div>
-                </div>
-              )}
-            </div>
+        {/* CONTEXTO */}
+        <EditableFieldCard title="Contexto General" icon={BookOpen} sectionKey="contexto" expanded={expandedSections} toggle={toggleSection}
+          value={mision.contexto_general} field="contexto_general"
+          editingField={editingField} setEditingField={setEditingField}
+          editValue={editValue} setEditValue={setEditValue}
+          saving={savingField} onSave={saveField} />
+
+        {/* DETONANTE */}
+        <EditableFieldCard title="Detonante" icon={AlertTriangle} sectionKey="detonante" expanded={expandedSections} toggle={toggleSection}
+          value={mision.detonante} field="detonante"
+          editingField={editingField} setEditingField={setEditingField}
+          editValue={editValue} setEditValue={setEditValue}
+          saving={savingField} onSave={saveField} />
+
+        {/* CONFLICTO */}
+        <EditableFieldCard title="Conflicto Central" icon={Shield} sectionKey="conflicto" expanded={expandedSections} toggle={toggleSection}
+          value={mision.conflicto_central} field="conflicto_central"
+          editingField={editingField} setEditingField={setEditingField}
+          editValue={editValue} setEditValue={setEditValue}
+          saving={savingField} onSave={saveField} />
+
+        {/* ACTOS */}
+        <SectionCard title="Actos / Fases" icon={Target} sectionKey="actos" expanded={expandedSections} toggle={toggleSection}>
+          {mision.actos_o_fases.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin actos definidos</p>
           ) : (
-            <p className="text-sm text-muted-foreground">No hay contenido narrativo. Genera con IA al crear o edita manualmente.</p>
+            <div className="space-y-3">
+              {mision.actos_o_fases.map((acto: any, i: number) => (
+                <div key={i} className="border border-border/50 rounded-lg p-3 space-y-1.5">
+                  <p className="font-display text-sm text-gold">{acto.titulo || `Fase ${i + 1}`}</p>
+                  {acto.objetivo && <p className="text-xs text-foreground/80"><span className="text-muted-foreground">Objetivo:</span> {acto.objetivo}</p>}
+                  {acto.obstaculo && <p className="text-xs text-foreground/80"><span className="text-muted-foreground">Obstáculo:</span> {acto.obstaculo}</p>}
+                  {acto.giro && <p className="text-xs text-foreground/80"><span className="text-muted-foreground">Giro:</span> {acto.giro}</p>}
+                </div>
+              ))}
+            </div>
           )}
         </SectionCard>
 
+        {/* ENFOQUES */}
+        <SectionCard title="Enfoques de Resolución" icon={Eye} sectionKey="enfoques" expanded={expandedSections} toggle={toggleSection}>
+          {mision.posibles_rutas.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin enfoques definidos</p>
+          ) : (
+            <div className="space-y-3">
+              {mision.posibles_rutas.map((ruta: any, i: number) => (
+                <div key={i} className="border border-border/50 rounded-lg p-3">
+                  <p className="font-display text-xs text-gold capitalize mb-1">{ruta.tipo || `Enfoque ${i + 1}`}</p>
+                  <p className="text-xs text-foreground/80">{ruta.descripcion}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+
+        {/* GIROS */}
+        <SectionCard title="Giros Argumentales" icon={Gem} sectionKey="giros" expanded={expandedSections} toggle={toggleSection}>
+          {mision.giros_argumentales.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin giros definidos</p>
+          ) : (
+            <ul className="space-y-2">
+              {mision.giros_argumentales.map((giro: any, i: number) => (
+                <li key={i} className="text-xs text-foreground/80 border-l-2 border-gold/30 pl-3">
+                  {typeof giro === "string" ? giro : JSON.stringify(giro)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </SectionCard>
+
+        {/* CONSECUENCIAS */}
+        <SectionCard title="Consecuencias" icon={AlertTriangle} sectionKey="consecuencias" expanded={expandedSections} toggle={toggleSection}>
+          {mision.consecuencias_potenciales && Object.keys(mision.consecuencias_potenciales).length > 0 ? (
+            <div className="space-y-2">
+              {mision.consecuencias_potenciales.exito && (
+                <div><p className="text-xs font-display text-green-400">Éxito</p><p className="text-xs text-foreground/80 mt-0.5">{mision.consecuencias_potenciales.exito}</p></div>
+              )}
+              {mision.consecuencias_potenciales.fracaso && (
+                <div><p className="text-xs font-display text-red-400">Fracaso</p><p className="text-xs text-foreground/80 mt-0.5">{mision.consecuencias_potenciales.fracaso}</p></div>
+              )}
+              {mision.consecuencias_potenciales.ignorar && (
+                <div><p className="text-xs font-display text-muted-foreground">Ignorar</p><p className="text-xs text-foreground/80 mt-0.5">{mision.consecuencias_potenciales.ignorar}</p></div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Sin consecuencias definidas</p>
+          )}
+        </SectionCard>
+
+        {/* SECRETOS */}
+        <SectionCard title="Secretos Ocultos" icon={Eye} sectionKey="secretos" expanded={expandedSections} toggle={toggleSection}>
+          {mision.secretos_ocultos.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin secretos definidos</p>
+          ) : (
+            <ul className="space-y-2">
+              {mision.secretos_ocultos.map((s, i) => (
+                <li key={i} className="text-xs text-foreground/80 border-l-2 border-gold/30 pl-3">{s}</li>
+              ))}
+            </ul>
+          )}
+        </SectionCard>
+
+        {/* RECOMPENSAS */}
+        <SectionCard title="Recompensas" icon={Trophy} sectionKey="recompensas" expanded={expandedSections} toggle={toggleSection}>
+          {mision.recompensas_sugeridas?.descripcion ? (
+            <p className="text-xs text-foreground/80">{mision.recompensas_sugeridas.descripcion}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">Sin recompensas definidas</p>
+          )}
+        </SectionCard>
+
+        {/* NOTAS DM */}
+        <EditableFieldCard title="Notas para el DM" icon={BookOpen} sectionKey="notas_dm" expanded={expandedSections} toggle={toggleSection}
+          value={mision.contenido} field="contenido"
+          editingField={editingField} setEditingField={setEditingField}
+          editValue={editValue} setEditValue={setEditValue}
+          saving={savingField} onSave={saveField} />
+
         {/* SUBMISIONES */}
-        <SectionCard title={`Submisiones (${submisiones.length})`} icon={Target} open={expandedSections.submisiones} onToggle={() => toggleSection("submisiones")}>
+        <SectionCard title={`Submisiones (${submisiones.length})`} icon={Target} sectionKey="submisiones" expanded={expandedSections} toggle={toggleSection}>
           {submisiones.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay submisiones aún</p>
           ) : (
@@ -348,7 +422,7 @@ const MissionDetail = () => {
         </SectionCard>
 
         {/* ESCENAS */}
-        <SectionCard title={`Escenas (${scenes.length})`} icon={Theater} open={expandedSections.escenas} onToggle={() => toggleSection("escenas")}>
+        <SectionCard title={`Escenas (${scenes.length})`} icon={Theater} sectionKey="escenas" expanded={expandedSections} toggle={toggleSection}>
           {scenes.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay escenas asociadas</p>
           ) : (
@@ -370,7 +444,7 @@ const MissionDetail = () => {
         </SectionCard>
 
         {/* ENCUENTROS */}
-        <SectionCard title={`Encuentros (${encounters.length})`} icon={Swords} open={expandedSections.encuentros} onToggle={() => toggleSection("encuentros")}>
+        <SectionCard title={`Encuentros (${encounters.length})`} icon={Swords} sectionKey="encuentros" expanded={expandedSections} toggle={toggleSection}>
           {encounters.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay encuentros vinculados</p>
           ) : (
@@ -396,7 +470,7 @@ const MissionDetail = () => {
         </SectionCard>
 
         {/* RELACIONADAS */}
-        <SectionCard title={`Relacionadas (${linkedMisions.length})`} icon={Link2} open={expandedSections.relacionadas} onToggle={() => toggleSection("relacionadas")}>
+        <SectionCard title={`Relacionadas (${linkedMisions.length})`} icon={Link2} sectionKey="relacionadas" expanded={expandedSections} toggle={toggleSection}>
           {linkedMisions.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay misiones relacionadas</p>
           ) : (
@@ -418,11 +492,9 @@ const MissionDetail = () => {
       </main>
 
       {/* FAB */}
-      <button
-        onClick={() => setShowCreateSub(true)}
+      <button onClick={() => setShowCreateSub(true)}
         className="fixed bottom-6 right-6 bg-primary text-primary-foreground rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:bg-gold-dark transition-colors z-50"
-        title="Nueva Submisión"
-      >
+        title="Nueva Submisión">
         <Plus size={24} />
       </button>
 
@@ -439,32 +511,67 @@ const MissionDetail = () => {
 
 // Reusable collapsible section card
 const SectionCard = ({
-  title, icon: Icon, open, onToggle, children,
+  title, icon: Icon, sectionKey, expanded, toggle, children,
 }: {
-  title: string; icon: React.ElementType; open: boolean; onToggle: () => void; children: React.ReactNode;
+  title: string; icon: React.ElementType; sectionKey: string; expanded: Record<string, boolean>; toggle: (key: string) => void; children: React.ReactNode;
 }) => (
   <div className="ornate-border rounded-lg parchment-bg overflow-hidden">
-    <button onClick={onToggle} className="w-full flex items-center justify-between p-4">
+    <button onClick={() => toggle(sectionKey)} className="w-full flex items-center justify-between p-4">
       <div className="flex items-center gap-2">
         <Icon size={16} className="text-gold" />
         <span className="font-display text-sm text-foreground">{title}</span>
       </div>
-      {open ? <ChevronDown size={18} className="text-muted-foreground" /> : <ChevronRight size={18} className="text-muted-foreground" />}
+      {expanded[sectionKey] ? <ChevronDown size={18} className="text-muted-foreground" /> : <ChevronRight size={18} className="text-muted-foreground" />}
     </button>
     <AnimatePresence>
-      {open && (
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: "auto", opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="overflow-hidden"
-        >
+      {expanded[sectionKey] && (
+        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
           <div className="px-4 pb-4">{children}</div>
         </motion.div>
       )}
     </AnimatePresence>
   </div>
 );
+
+// Editable text field card
+const EditableFieldCard = ({
+  title, icon, sectionKey, expanded, toggle, value, field,
+  editingField, setEditingField, editValue, setEditValue, saving, onSave,
+}: {
+  title: string; icon: React.ElementType; sectionKey: string; expanded: Record<string, boolean>; toggle: (key: string) => void;
+  value: string | null; field: string;
+  editingField: string | null; setEditingField: (f: string | null) => void;
+  editValue: string; setEditValue: (v: string) => void;
+  saving: boolean; onSave: (field: string, value: string) => void;
+}) => {
+  const isEditing = editingField === field;
+  return (
+    <SectionCard title={title} icon={icon} sectionKey={sectionKey} expanded={expanded} toggle={toggle}>
+      {isEditing ? (
+        <div className="space-y-2">
+          <textarea value={editValue} onChange={e => setEditValue(e.target.value)} rows={5}
+            className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-gold transition-colors resize-y" />
+          <div className="flex gap-2">
+            <button onClick={() => setEditingField(null)} className="flex-1 border border-border text-foreground text-xs py-2 rounded-lg hover:bg-secondary transition-colors">Cancelar</button>
+            <button onClick={() => onSave(field, editValue)} disabled={saving}
+              className="flex-1 bg-primary text-primary-foreground text-xs py-2 rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-1">
+              {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Guardar
+            </button>
+          </div>
+        </div>
+      ) : value ? (
+        <div>
+          <button onClick={() => { setEditValue(value); setEditingField(field); }}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-gold mb-2 transition-colors">
+            <Pencil size={12} /> Editar
+          </button>
+          <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap">{value}</p>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">Sin contenido. <button onClick={() => { setEditValue(""); setEditingField(field); }} className="text-gold hover:underline">Añadir</button></p>
+      )}
+    </SectionCard>
+  );
+};
 
 export default MissionDetail;
