@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { X, Sparkles, Loader2 } from "lucide-react";
+import { X, Sparkles, Loader2, AlertTriangle, Zap } from "lucide-react";
 import { faerunLocations } from "@/data/faerun-locations";
+import { Progress } from "@/components/ui/progress";
 
 interface Props {
   open: boolean;
@@ -26,6 +27,12 @@ interface MissionJSON {
   secretos: string[];
   recompensas: string;
   notas_dm: string;
+  subtramas?: string[];
+  detalle_ambiental?: string;
+  pnj_implicados?: { nombre: string; rol: string; motivacion: string }[];
+  _mode?: string;
+  _fallback?: boolean;
+  _warnings?: string[];
 }
 
 const TIPOS_MISION = [
@@ -46,6 +53,7 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
   const [tono, setTono] = useState("");
   const [tags, setTags] = useState("");
   const [selectedParentId, setSelectedParentId] = useState(parentId || "");
+  const [mode, setMode] = useState<"normal" | "extended">("normal");
 
   const [selectedRegion, setSelectedRegion] = useState("");
   const [selectedSubregion, setSelectedSubregion] = useState("");
@@ -54,6 +62,7 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
   const [generating, setGenerating] = useState(false);
   const [generatedMission, setGeneratedMission] = useState<MissionJSON | null>(null);
   const [saving, setSaving] = useState(false);
+  const [genProgress, setGenProgress] = useState(0);
 
   const [existingMissions, setExistingMissions] = useState<{ id: string; titulo: string }[]>([]);
 
@@ -81,9 +90,15 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
 
     setGenerating(true);
     setGeneratedMission(null);
+    setGenProgress(10);
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { toast.error("Inicia sesión"); setGenerating(false); return; }
+
+    // Simulate progress
+    const progressInterval = setInterval(() => {
+      setGenProgress(prev => Math.min(prev + Math.random() * 15, 85));
+    }, 800);
 
     try {
       const res = await fetch(
@@ -101,9 +116,13 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
             nivelGrupo: nivelRecomendado,
             tono: tono || "épico",
             parentMissionId: selectedParentId || null,
+            mode,
           }),
         }
       );
+
+      clearInterval(progressInterval);
+      setGenProgress(95);
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Error desconocido" }));
@@ -112,11 +131,21 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
 
       const mission: MissionJSON = await res.json();
       setGeneratedMission(mission);
-      toast.success("Misión generada correctamente");
+      setGenProgress(100);
+
+      if (mission._fallback) {
+        toast.info("Generado en modo normal por disponibilidad del servicio");
+      } else if (mission._warnings?.length) {
+        toast.warning("Generado con advertencias menores");
+      } else {
+        toast.success("Misión generada correctamente");
+      }
     } catch (e: any) {
+      clearInterval(progressInterval);
       toast.error(e.message || "Error generando misión");
     }
     setGenerating(false);
+    setGenProgress(0);
   };
 
   const handleSave = async () => {
@@ -141,7 +170,7 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
       contexto_general: m?.contexto_general || null,
       detonante: m?.detonante || null,
       conflicto_central: m?.conflicto_real || null,
-      trama_detallada: null,
+      trama_detallada: m?.detalle_ambiental || null,
       actos_o_fases: m?.actos || [],
       posibles_rutas: m?.enfoques_resolucion || [],
       giros_argumentales: m?.giros_argumentales || [],
@@ -153,6 +182,11 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
       secretos_ocultos: m?.secretos || [],
       recompensas_sugeridas: m ? { descripcion: m.recompensas } : {},
       contenido: m?.notas_dm || null,
+      metadata: m ? {
+        mode: m._mode || "normal",
+        subtramas: m.subtramas || [],
+        pnj_implicados: m.pnj_implicados || [],
+      } : {},
     };
 
     const { error } = await supabase.from("misiones").insert(insertData);
@@ -172,7 +206,7 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
   const resetForm = () => {
     setTitulo(""); setTipo(""); setNivelRecomendado("1-5"); setTono(""); setTags("");
     setSelectedParentId(""); setSelectedRegion(""); setSelectedSubregion(""); setSelectedLocation("");
-    setGeneratedMission(null);
+    setGeneratedMission(null); setMode("normal"); setGenProgress(0);
   };
 
   if (!open) return null;
@@ -191,6 +225,28 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
         </div>
 
         <div className="p-4 space-y-4">
+          {/* Mode toggle */}
+          <div className="flex gap-2">
+            <button onClick={() => setMode("normal")}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border text-sm font-display transition-colors ${
+                mode === "normal" ? "border-gold bg-gold/20 text-gold" : "border-border text-muted-foreground hover:border-gold/40"
+              }`}>
+              <Sparkles size={16} /> Normal
+            </button>
+            <button onClick={() => setMode("extended")}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border text-sm font-display transition-colors ${
+                mode === "extended" ? "border-gold bg-gold/20 text-gold" : "border-border text-muted-foreground hover:border-gold/40"
+              }`}>
+              <Zap size={16} /> Extendida
+            </button>
+          </div>
+          {mode === "extended" && (
+            <div className="flex items-start gap-2 text-xs text-amber-400 bg-amber-400/10 rounded-lg px-3 py-2">
+              <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+              <span>Modo avanzado — genera contenido más profundo pero puede tardar más.</span>
+            </div>
+          )}
+
           {/* Título */}
           <div>
             <label className="block text-sm font-display text-gold-light mb-1.5">
@@ -208,7 +264,7 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
             <div className="flex flex-wrap gap-2">
               {TIPOS_MISION.map(t => (
                 <button key={t} type="button" onClick={() => setTipo(tipo === t ? "" : t)}
-                  className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                  className={`text-xs px-3 py-2 rounded-lg border transition-colors ${
                     tipo === t ? "border-gold bg-gold/20 text-gold" : "border-border text-muted-foreground hover:border-gold/40"
                   }`}>{t}</button>
               ))}
@@ -245,7 +301,7 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
             <div className="flex flex-wrap gap-2">
               {TONOS.map(t => (
                 <button key={t} type="button" onClick={() => setTono(tono === t ? "" : t)}
-                  className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                  className={`text-xs px-3 py-2 rounded-lg border transition-colors ${
                     tono === t ? "border-gold bg-gold/20 text-gold" : "border-border text-muted-foreground hover:border-gold/40"
                   }`}>{t}</button>
               ))}
@@ -283,16 +339,28 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
             </div>
           )}
 
-          {/* Generate button */}
-          <button onClick={handleGenerate} disabled={generating || !tipo || !selectedRegion}
-            className="w-full flex items-center justify-center gap-2 bg-secondary border border-gold/40 text-gold font-display py-3 rounded-lg hover:bg-gold/10 transition-colors disabled:opacity-40 text-base">
-            {generating ? <><Loader2 size={18} className="animate-spin" /> Generando...</> : <><Sparkles size={18} /> Generar con IA</>}
-          </button>
+          {/* Generate button + progress */}
+          <div className="space-y-2">
+            <button onClick={handleGenerate} disabled={generating || !tipo || !selectedRegion}
+              className="w-full flex items-center justify-center gap-2 bg-secondary border border-gold/40 text-gold font-display py-3 rounded-lg hover:bg-gold/10 transition-colors disabled:opacity-40 text-base">
+              {generating ? <><Loader2 size={18} className="animate-spin" /> Generando{mode === "extended" ? " (extendida)" : ""}...</> : <><Sparkles size={18} /> Generar con IA</>}
+            </button>
+            {generating && genProgress > 0 && (
+              <Progress value={genProgress} className="h-1.5" />
+            )}
+          </div>
 
           {/* Preview generated mission */}
           {generatedMission && (
             <div className="space-y-3 border border-gold/30 rounded-lg p-3 bg-secondary/50">
-              <h3 className="font-display text-gold text-sm">Vista previa</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="font-display text-gold text-sm">Vista previa</h3>
+                {generatedMission._mode && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded ${generatedMission._mode === "extended" ? "bg-amber-400/20 text-amber-400" : "bg-secondary text-muted-foreground"}`}>
+                    {generatedMission._mode === "extended" ? "Extendida" : "Normal"}
+                  </span>
+                )}
+              </div>
               <PreviewField label="Nombre" value={generatedMission.nombre} />
               <PreviewField label="Contexto" value={generatedMission.contexto_general} />
               <PreviewField label="Detonante" value={generatedMission.detonante} />
@@ -303,6 +371,18 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
                   <p className="text-xs text-muted-foreground mt-0.5">{a.objetivo}</p>
                 </div>
               ))}
+              {generatedMission.subtramas?.length ? (
+                <div className="border-t border-border/50 pt-2">
+                  <p className="text-xs font-display text-gold-light">Subtramas</p>
+                  {generatedMission.subtramas.map((s, i) => <p key={i} className="text-xs text-muted-foreground mt-0.5">• {s}</p>)}
+                </div>
+              ) : null}
+              {generatedMission.pnj_implicados?.length ? (
+                <div className="border-t border-border/50 pt-2">
+                  <p className="text-xs font-display text-gold-light">PNJ Implicados</p>
+                  {generatedMission.pnj_implicados.map((p, i) => <p key={i} className="text-xs text-muted-foreground mt-0.5">• {p.nombre} ({p.rol})</p>)}
+                </div>
+              ) : null}
               <PreviewField label="Recompensas" value={generatedMission.recompensas} />
               <PreviewField label="Notas DM" value={generatedMission.notas_dm} />
             </div>
