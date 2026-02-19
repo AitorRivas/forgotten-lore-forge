@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, ChevronRight, ChevronDown, Swords, Target, Plus,
   Link2, Pencil, Save, Loader2, Scroll, Check, Archive, Trash2, Theater,
-  MapPin, BookOpen, Shield, AlertTriangle, Trophy, Eye, Gem,
+  MapPin, BookOpen, Shield, AlertTriangle, Trophy, Eye, Gem, RefreshCw,
 } from "lucide-react";
 import CreateMissionDialog from "@/components/CreateMissionDialog";
 
@@ -67,6 +67,13 @@ const DIFF_LABELS: Record<number, string> = {
   1: "Fácil", 2: "Moderado", 3: "Desafiante", 4: "Difícil", 5: "Mortal",
 };
 
+const REGENERABLE_FIELDS: Record<string, { label: string; dbField: string }> = {
+  contexto_general: { label: "Contexto", dbField: "contexto_general" },
+  detonante: { label: "Detonante", dbField: "detonante" },
+  conflicto_central: { label: "Conflicto", dbField: "conflicto_central" },
+  notas_dm: { label: "Notas DM", dbField: "contenido" },
+};
+
 const MissionDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -83,6 +90,7 @@ const MissionDetail = () => {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [savingField, setSavingField] = useState(false);
+  const [regeneratingField, setRegeneratingField] = useState<string | null>(null);
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     info: true,
@@ -197,6 +205,42 @@ const MissionDetail = () => {
     setSavingField(false);
   };
 
+  const regenerateField = async (fieldKey: string) => {
+    if (!mision) return;
+    setRegeneratingField(fieldKey);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-mission`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            regenerateField: fieldKey,
+            tipo: mision.tipo || "aventura",
+            ubicacion: mision.ubicacion_principal || "Faerûn",
+            nivelGrupo: mision.nivel_recomendado || "1-5",
+            tono: mision.tono || "épico",
+            customPrompt: mision.conflicto_central || "",
+          }),
+        }
+      );
+      if (!res.ok) throw new Error("Error regenerando");
+      const data = await res.json();
+      if (data.value) {
+        const dbField = REGENERABLE_FIELDS[fieldKey]?.dbField || fieldKey;
+        if (confirm(`¿Reemplazar ${REGENERABLE_FIELDS[fieldKey]?.label || fieldKey} con el nuevo contenido?`)) {
+          await saveField(dbField, data.value);
+        }
+      }
+    } catch (e: any) {
+      toast.error("Error regenerando sección");
+    }
+    setRegeneratingField(null);
+  };
+
   if (loading || !mision) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -206,6 +250,7 @@ const MissionDetail = () => {
   }
 
   const displayTitle = mision.titulo || "Misión sin título";
+  const missionMode = mision.metadata?.mode;
 
   return (
     <div className="min-h-screen bg-background">
@@ -230,7 +275,12 @@ const MissionDetail = () => {
               className="text-muted-foreground hover:text-foreground transition-colors p-1">
               <ArrowLeft size={20} />
             </button>
-            <h1 className="font-display text-lg sm:text-xl text-gold text-glow truncate">{displayTitle}</h1>
+            <h1 className="font-display text-lg sm:text-xl text-gold text-glow truncate flex-1">{displayTitle}</h1>
+            {missionMode && (
+              <span className={`text-[10px] px-2 py-0.5 rounded shrink-0 ${missionMode === "extended" ? "bg-amber-400/20 text-amber-400" : "bg-secondary text-muted-foreground"}`}>
+                {missionMode === "extended" ? "Extendida" : "Normal"}
+              </span>
+            )}
           </div>
         </div>
       </header>
@@ -256,21 +306,21 @@ const MissionDetail = () => {
           )}
           <div className="flex flex-wrap gap-2">
             {mision.estado !== "completada" && (
-              <button onClick={() => updateEstado("completada")} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border hover:border-green-500/50 transition-colors">
+              <button onClick={() => updateEstado("completada")} className="flex items-center gap-1.5 text-xs px-3 py-2.5 rounded-lg border border-border hover:border-green-500/50 transition-colors">
                 <Check size={14} /> Completar
               </button>
             )}
             {mision.estado !== "archivada" && (
-              <button onClick={() => updateEstado("archivada")} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border hover:border-muted-foreground/50 transition-colors">
+              <button onClick={() => updateEstado("archivada")} className="flex items-center gap-1.5 text-xs px-3 py-2.5 rounded-lg border border-border hover:border-muted-foreground/50 transition-colors">
                 <Archive size={14} /> Archivar
               </button>
             )}
             {mision.estado !== "activa" && (
-              <button onClick={() => updateEstado("activa")} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border hover:border-gold/50 transition-colors">
+              <button onClick={() => updateEstado("activa")} className="flex items-center gap-1.5 text-xs px-3 py-2.5 rounded-lg border border-border hover:border-gold/50 transition-colors">
                 <Target size={14} /> Reactivar
               </button>
             )}
-            <button onClick={deleteMision} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border text-destructive hover:border-destructive/50 transition-colors ml-auto">
+            <button onClick={deleteMision} className="flex items-center gap-1.5 text-xs px-3 py-2.5 rounded-lg border border-border text-destructive hover:border-destructive/50 transition-colors ml-auto">
               <Trash2 size={14} /> Eliminar
             </button>
           </div>
@@ -281,21 +331,24 @@ const MissionDetail = () => {
           value={mision.contexto_general} field="contexto_general"
           editingField={editingField} setEditingField={setEditingField}
           editValue={editValue} setEditValue={setEditValue}
-          saving={savingField} onSave={saveField} />
+          saving={savingField} onSave={saveField}
+          canRegenerate regeneratingField={regeneratingField} onRegenerate={regenerateField} />
 
         {/* DETONANTE */}
         <EditableFieldCard title="Detonante" icon={AlertTriangle} sectionKey="detonante" expanded={expandedSections} toggle={toggleSection}
           value={mision.detonante} field="detonante"
           editingField={editingField} setEditingField={setEditingField}
           editValue={editValue} setEditValue={setEditValue}
-          saving={savingField} onSave={saveField} />
+          saving={savingField} onSave={saveField}
+          canRegenerate regeneratingField={regeneratingField} onRegenerate={regenerateField} />
 
         {/* CONFLICTO */}
         <EditableFieldCard title="Conflicto Central" icon={Shield} sectionKey="conflicto" expanded={expandedSections} toggle={toggleSection}
           value={mision.conflicto_central} field="conflicto_central"
           editingField={editingField} setEditingField={setEditingField}
           editValue={editValue} setEditValue={setEditValue}
-          saving={savingField} onSave={saveField} />
+          saving={savingField} onSave={saveField}
+          canRegenerate regeneratingField={regeneratingField} onRegenerate={regenerateField} />
 
         {/* ACTOS */}
         <SectionCard title="Actos / Fases" icon={Target} sectionKey="actos" expanded={expandedSections} toggle={toggleSection}>
@@ -392,7 +445,8 @@ const MissionDetail = () => {
           value={mision.contenido} field="contenido"
           editingField={editingField} setEditingField={setEditingField}
           editValue={editValue} setEditValue={setEditValue}
-          saving={savingField} onSave={saveField} />
+          saving={savingField} onSave={saveField}
+          canRegenerate regeneratingField={regeneratingField} onRegenerate={() => regenerateField("notas_dm")} />
 
         {/* SUBMISIONES */}
         <SectionCard title={`Submisiones (${submisiones.length})`} icon={Target} sectionKey="submisiones" expanded={expandedSections} toggle={toggleSection}>
@@ -533,18 +587,21 @@ const SectionCard = ({
   </div>
 );
 
-// Editable text field card
+// Editable text field card with optional regeneration
 const EditableFieldCard = ({
   title, icon, sectionKey, expanded, toggle, value, field,
   editingField, setEditingField, editValue, setEditValue, saving, onSave,
+  canRegenerate, regeneratingField, onRegenerate,
 }: {
   title: string; icon: React.ElementType; sectionKey: string; expanded: Record<string, boolean>; toggle: (key: string) => void;
   value: string | null; field: string;
   editingField: string | null; setEditingField: (f: string | null) => void;
   editValue: string; setEditValue: (v: string) => void;
   saving: boolean; onSave: (field: string, value: string) => void;
+  canRegenerate?: boolean; regeneratingField?: string | null; onRegenerate?: (field: string) => void;
 }) => {
   const isEditing = editingField === field;
+  const isRegenerating = regeneratingField === field;
   return (
     <SectionCard title={title} icon={icon} sectionKey={sectionKey} expanded={expanded} toggle={toggle}>
       {isEditing ? (
@@ -552,23 +609,42 @@ const EditableFieldCard = ({
           <textarea value={editValue} onChange={e => setEditValue(e.target.value)} rows={5}
             className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-gold transition-colors resize-y" />
           <div className="flex gap-2">
-            <button onClick={() => setEditingField(null)} className="flex-1 border border-border text-foreground text-xs py-2 rounded-lg hover:bg-secondary transition-colors">Cancelar</button>
+            <button onClick={() => setEditingField(null)} className="flex-1 border border-border text-foreground text-xs py-2.5 rounded-lg hover:bg-secondary transition-colors">Cancelar</button>
             <button onClick={() => onSave(field, editValue)} disabled={saving}
-              className="flex-1 bg-primary text-primary-foreground text-xs py-2 rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-1">
+              className="flex-1 bg-primary text-primary-foreground text-xs py-2.5 rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-1">
               {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Guardar
             </button>
           </div>
         </div>
       ) : value ? (
         <div>
-          <button onClick={() => { setEditValue(value); setEditingField(field); }}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-gold mb-2 transition-colors">
-            <Pencil size={12} /> Editar
-          </button>
+          <div className="flex items-center gap-2 mb-2">
+            <button onClick={() => { setEditValue(value); setEditingField(field); }}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-gold transition-colors">
+              <Pencil size={12} /> Editar
+            </button>
+            {canRegenerate && onRegenerate && (
+              <button onClick={() => onRegenerate(field)} disabled={!!regeneratingField}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-gold transition-colors disabled:opacity-50">
+                {isRegenerating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                Regenerar
+              </button>
+            )}
+          </div>
           <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap">{value}</p>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">Sin contenido. <button onClick={() => { setEditValue(""); setEditingField(field); }} className="text-gold hover:underline">Añadir</button></p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-muted-foreground">Sin contenido.</p>
+          <button onClick={() => { setEditValue(""); setEditingField(field); }} className="text-xs text-gold hover:underline">Añadir</button>
+          {canRegenerate && onRegenerate && (
+            <button onClick={() => onRegenerate(field)} disabled={!!regeneratingField}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-gold transition-colors disabled:opacity-50">
+              {isRegenerating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+              Generar
+            </button>
+          )}
+        </div>
       )}
     </SectionCard>
   );
