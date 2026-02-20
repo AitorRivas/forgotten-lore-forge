@@ -31,7 +31,6 @@ const XP_THRESHOLDS: Record<number, { easy: number; medium: number; hard: number
   20: { easy: 2800, medium: 5700, hard: 8500, deadly: 12700 },
 };
 
-// XP by CR (official table)
 const CR_XP: Record<string, number> = {
   "0": 10, "1/8": 25, "1/4": 50, "1/2": 100,
   "1": 200, "2": 450, "3": 700, "4": 1100, "5": 1800,
@@ -42,7 +41,6 @@ const CR_XP: Record<string, number> = {
   "26": 90000, "27": 105000, "28": 120000, "29": 135000, "30": 155000,
 };
 
-// Encounter multiplier by number of monsters (DMG p.82)
 function getEncounterMultiplier(numMonsters: number): number {
   if (numMonsters <= 1) return 1;
   if (numMonsters === 2) return 1.5;
@@ -65,8 +63,6 @@ function getPartyThresholds(partyMembers: { level: number }[]) {
   return thresholds;
 }
 
-// Difficulty levels mapped to threshold ranges
-// 1=Easy, 2=Medium, 3=Hard, 4=Deadly, 5=Beyond Deadly (1.5× deadly)
 function getTargetXPRange(difficulty: number, thresholds: ReturnType<typeof getPartyThresholds>) {
   switch (difficulty) {
     case 1: return { min: thresholds.easy * 0.7, max: thresholds.medium - 1 };
@@ -87,7 +83,6 @@ interface ParsedCreature {
 
 function parseCreaturesFromMarkdown(md: string): ParsedCreature[] {
   const creatures: ParsedCreature[] = [];
-  // Match patterns like: ### Goblin (CR 1/4, 50 XP)  or  ### 3× Goblin (CR 1/4, 50 XP)
   const creatureRegex = /###\s*(?:(\d+)[×x]\s*)?(.+?)\s*\(CR\s*([0-9/]+)\s*,?\s*(\d[\d.,]*)\s*XP\)/gi;
   let match;
   while ((match = creatureRegex.exec(md)) !== null) {
@@ -124,7 +119,6 @@ function validateEncounter(
   const multiplier = getEncounterMultiplier(totalCreatures);
   const adjustedXP = Math.round(baseXP * multiplier);
 
-  // Classify the actual difficulty
   let classification = "Fácil";
   if (adjustedXP >= thresholds.deadly * 1.3) classification = "Mortal";
   else if (adjustedXP >= thresholds.deadly) classification = "Difícil";
@@ -134,47 +128,53 @@ function validateEncounter(
   const diffLabels: Record<number, string> = { 1: "Fácil", 2: "Moderado", 3: "Desafiante", 4: "Difícil", 5: "Mortal" };
   const targetLabel = diffLabels[difficulty] || "Desafiante";
 
-  // 1. XP within target range?
   if (adjustedXP < target.min * 0.8) {
-    errors.push(`XP_TOO_LOW: XP ajustado (${adjustedXP}) está muy por debajo del rango ${targetLabel} (mín: ${Math.round(target.min)}). El encuentro es demasiado fácil.`);
+    errors.push(`XP_TOO_LOW: XP ajustado (${adjustedXP}) está muy por debajo del rango ${targetLabel} (mín: ${Math.round(target.min)}).`);
   } else if (adjustedXP > target.max * 1.3) {
-    errors.push(`XP_TOO_HIGH: XP ajustado (${adjustedXP}) excede significativamente el rango ${targetLabel} (máx: ${Math.round(target.max)}). El encuentro es demasiado letal.`);
+    errors.push(`XP_TOO_HIGH: XP ajustado (${adjustedXP}) excede significativamente el rango ${targetLabel} (máx: ${Math.round(target.max)}).`);
   }
 
-  // 2. CR vs mortal range - check if any single creature's CR is absurdly high
   const avgLevel = partyMembers.reduce((s, m) => s + m.level, 0) / partyMembers.length;
   const maxSafeCR = Math.ceil(avgLevel * 1.5) + 2;
   for (const c of creatures) {
     const crNum = c.cr.includes("/") ? eval(c.cr) : parseFloat(c.cr);
     if (crNum > maxSafeCR) {
-      errors.push(`CR_TOO_HIGH: ${c.name} (CR ${c.cr}) excede el CR máximo seguro (${maxSafeCR}) para un grupo de nivel promedio ${avgLevel.toFixed(1)}. Podría ser un TPK inmediato.`);
+      errors.push(`CR_TOO_HIGH: ${c.name} (CR ${c.cr}) excede el CR máximo seguro (${maxSafeCR}).`);
     }
   }
 
-  // 3. Trivial encounter check
   if (totalCreatures === 0) {
     errors.push("NO_CREATURES: No se detectaron criaturas en el encuentro.");
   } else if (baseXP < thresholds.easy * 0.5 && difficulty >= 2) {
-    errors.push(`TRIVIAL: El encuentro es trivial (${baseXP} XP base) para un grupo con umbral fácil de ${thresholds.easy} XP. Necesita criaturas más fuertes o más numerosas.`);
+    errors.push(`TRIVIAL: El encuentro es trivial (${baseXP} XP base).`);
   }
 
-  // 4. Tactical synergy - at least 2 creatures or 1 creature with abilities for solo threat
   if (totalCreatures === 1 && difficulty >= 3) {
     const cr = creatures[0]?.cr;
     const crNum = cr?.includes("/") ? eval(cr) : parseFloat(cr || "0");
     if (crNum < avgLevel + 3) {
-      errors.push(`NO_SYNERGY: Un solo monstruo de CR ${cr} contra ${partyMembers.length} jugadores carece de sinergia táctica y será abrumado por la acción economy. Añade criaturas de apoyo o usa un CR más alto.`);
+      errors.push(`NO_SYNERGY: Un solo monstruo de CR ${cr} carece de sinergia táctica.`);
     }
   }
 
-  return {
-    valid: errors.length === 0,
-    errors,
-    adjustedXP,
-    baseXP,
-    totalCreatures,
-    classification,
-  };
+  return { valid: errors.length === 0, errors, adjustedXP, baseXP, totalCreatures, classification };
+}
+
+// ── Detect party weaknesses ──
+function analyzePartyWeaknesses(partyMembers: { className: string; level: number }[]): string[] {
+  const weaknesses: string[] = [];
+  const classes = partyMembers.map(m => m.className.toLowerCase());
+  
+  const hasTank = classes.some(c => ["guerrero", "paladín", "bárbaro"].includes(c));
+  const hasHealer = classes.some(c => ["clérigo", "druida", "paladín", "bardo"].includes(c));
+  const hasCaster = classes.some(c => ["mago", "hechicero", "brujo"].includes(c));
+  
+  if (!hasTank) weaknesses.push("SIN_TANQUE: No hay tanque frontal. Reducir criaturas cuerpo a cuerpo agresivas o añadir terreno defensivo.");
+  if (!hasHealer) weaknesses.push("SIN_SANADOR: No hay sanador dedicado. Considerar menor daño sostenido y añadir opciones de descanso corto.");
+  if (partyMembers.length <= 2) weaknesses.push("GRUPO_PEQUEÑO: Grupo reducido. Reducir número de enemigos para evitar desventaja de acción.");
+  if (partyMembers.length >= 6) weaknesses.push("GRUPO_GRANDE: Grupo numeroso. Aumentar enemigos o añadir objetivos secundarios.");
+  
+  return weaknesses;
 }
 
 serve(async (req) => {
@@ -183,7 +183,6 @@ serve(async (req) => {
   try {
     const { partyMembers, partySize, avgLevel, difficulty, difficultyLabel, region, encounterTheme, specificRequest, campaignId } = await req.json();
 
-    // Get user from auth header
     const authHeader = req.headers.get("Authorization") || "";
     let userId: string | null = null;
     let campaignContext: any = null;
@@ -194,10 +193,8 @@ serve(async (req) => {
         Deno.env.get("SUPABASE_ANON_KEY")!,
         { global: { headers: { Authorization: authHeader } } }
       );
-
       const { data } = await supabase.auth.getClaims(authHeader.replace("Bearer ", ""));
       userId = data?.claims?.sub || null;
-
       if (campaignId && userId) {
         const { data: campaign } = await supabase
           .from("campaigns")
@@ -209,7 +206,8 @@ serve(async (req) => {
     }
 
     const partyAnalysis = (partyMembers || []).map((m: any) => `- ${m.className} nivel ${m.level}`).join("\n");
-    const partyWithLevels = (partyMembers || []).map((m: any) => ({ level: m.level || 5 }));
+    const partyWithLevels = (partyMembers || []).map((m: any) => ({ level: m.level || 5, className: m.className || "Guerrero" }));
+    const partyWeaknesses = analyzePartyWeaknesses(partyWithLevels);
 
     const systemPrompt = `Eres un diseñador de encuentros tácticos experto para D&D 5e (Forgotten Realms). 
 Tu trabajo es crear encuentros equilibrados, detallados y jugables siguiendo ESTRICTAMENTE las reglas oficiales de D&D 5e.
@@ -217,27 +215,25 @@ Tu trabajo es crear encuentros equilibrados, detallados y jugables siguiendo EST
 REGLAS FUNDAMENTALES:
 1. Usa SOLO criaturas del Monster Manual, Volo's Guide, Mordenkainen's Tome, Fizban's Treasury y otros libros OFICIALES de D&D 5e.
 2. Los CR deben ser precisos y verificados contra las tablas oficiales de XP por CR.
-3. El equilibrio debe seguir las tablas de umbrales de XP del DMG (cap. 3):
-   - Fácil: XP total < umbral fácil × nº jugadores
-   - Moderado: entre umbral fácil y medio
-   - Desafiante: entre umbral medio y difícil
-   - Difícil: entre umbral difícil y letal
-   - Mortal: XP total ≥ umbral letal × nº jugadores
+3. El equilibrio debe seguir las tablas de umbrales de XP del DMG (cap. 3).
 4. Aplica el multiplicador de XP por número de enemigos (DMG p.82).
 5. Incluye stats reales: CA, PG, velocidad, ataques, habilidades y hechizos tal como aparecen en los manuales.
-6. SIEMPRE incluye sinergia táctica real entre las criaturas: flanqueo, apoyo, control de área, combinaciones de habilidades.
-7. Las criaturas DEBEN tener ### en formato: ### [Nombre] (CR [X], [XP] XP) - esto es OBLIGATORIO para la validación.
+6. SIEMPRE incluye sinergia táctica real entre las criaturas.
+7. Las criaturas DEBEN tener ### en formato: ### [Nombre] (CR [X], [XP] XP) - OBLIGATORIO para validación.
 
 FORMATO DE RESPUESTA (Markdown estructurado):
 
 # ⚔️ [Título del Encuentro]
 
 ## 📊 Resumen del Encuentro
-- **Dificultad:** [nivel]
+- **Dificultad:** [Fácil/Moderado/Desafiante/Difícil/Mortal]
 - **XP Total:** [cantidad] XP (ajustado: [cantidad] XP)
 - **Nº Criaturas:** [cantidad]
 - **Entorno:** [tipo de terreno/ubicación]
 - **Región:** [región de Faerûn]
+
+## 🎯 Resumen Táctico
+[Párrafo breve de 2-3 frases describiendo la premisa del combate: qué buscan los enemigos, cuál es la amenaza principal y qué hace único este encuentro]
 
 ## 👥 Análisis del Grupo
 [Resumen de fortalezas y debilidades del grupo basado en su composición]
@@ -257,34 +253,29 @@ Para CADA criatura (OBLIGATORIO usar este formato exacto):
   - [Nombre ataque]: +[bonus] a impactar, alcance [X], [daño]
 - **Habilidades Especiales:**
   - [Nombre]: [descripción mecánica completa]
-- **Hechizos** (si aplica):
-  - Trucos: [lista]
-  - Nivel 1 ([X] ranuras): [lista]
-  - Nivel 2 ([X] ranuras): [lista]
-  - [etc.]
-- **Rasgos Especiales:** [lista de rasgos pasivos o activos relevantes]
-
-## 🎯 Estrategia Táctica
-### Fase de Preparación
-[Cómo están posicionados los enemigos antes del encuentro]
-
-### Plan de los 3 Primeros Asaltos
-**Asalto 1:** [acciones detalladas de cada criatura]
-**Asalto 2:** [acciones detalladas, reacciones a los PJs]
-**Asalto 3:** [adaptación táctica según el desarrollo]
-
-### Tácticas Avanzadas
-- **Foco de ataque:** [a quién atacan primero y por qué]
-- **Uso del terreno:** [cómo aprovechan el entorno]
-- **Retirada:** [cuándo y cómo se retiran]
-- **Sinergias:** [combinaciones entre criaturas - OBLIGATORIO detallar]
+- **Hechizos** (si aplica)
+- **Rasgos Especiales:** [lista]
 
 ## ⚖️ Validación de Equilibrio
 - **XP por jugador:** [cantidad]
 - **Umbral Fácil:** [valor] | **Moderado:** [valor] | **Difícil:** [valor] | **Letal:** [valor]
 - **Clasificación real:** [resultado]
 - **Multiplicador aplicado:** ×[valor] (por [X] criaturas)
-- **Ajustes recomendados:** [si el equilibrio no coincide con la dificultad pedida]
+- **Ajustes recomendados:** [si aplica]
+
+## 🎯 Estrategia Táctica por Fases
+
+### ⚡ Inicio del Combate (Asaltos 1-2)
+[Cómo abren el combate los enemigos: posicionamiento, ataques iniciales, habilidades de apertura]
+
+### 🔄 Punto Medio (Asaltos 3-4)
+[Cómo adaptan la táctica: cambios de foco, uso de habilidades especiales, sinergias entre criaturas]
+
+### 🏆 Si los Enemigos Están Ganando
+[Qué hacen si tienen ventaja: presionar, hacer prisioneros, exigir rendición, ejecutar debilitados]
+
+### 💀 Si los Enemigos Están Perdiendo
+[Cuándo y cómo se retiran, piden refuerzos, negocian, luchan hasta la muerte o intentan escapar]
 
 ## 🗺️ Descripción del Escenario
 [Descripción narrativa del lugar, atmósfera, elementos interactivos]
@@ -295,7 +286,7 @@ Para CADA criatura (OBLIGATORIO usar este formato exacto):
 
 ## 💰 Recompensas
 - **XP Total:** [cantidad] (÷ ${partySize || 4} = [XP por jugador])
-- **Tesoro:** [según las tablas del DMG para CR apropiado]
+- **Tesoro:** [según tablas del DMG]
 
 ## 📝 Notas del DM
 [Consejos para dirigir el encuentro, variaciones, ganchos narrativos]`;
@@ -304,23 +295,23 @@ Para CADA criatura (OBLIGATORIO usar este formato exacto):
     const effectiveTone = campaignContext?.tone || "épico";
 
     const regionLoreMap: Record<string, string> = {
-      "Costa de la Espada": "Criaturas típicas: goblins, gnolls, orcos, bandidos del Camino Comercial, dragones jóvenes, monstruos marinos costeros, sahuagin. Clima: templado oceánico, nieblas frecuentes. Amenazas: Culto del Dragón, Zhentarim, piratas de Luskan, resurgimiento de Tiamat.",
-      "Costa de la Espada Norte": "Criaturas típicas: trolls de hielo, gigantes de escarcha, lobos invernales, yetis, orcos de Muchas Flechas, dragones blancos. Clima: frío severo, tormentas de nieve. Amenazas: la Hueste Salvaje, restos del ejército de Muchas Flechas, nigromantes del Norte.",
-      "Norte": "Criaturas típicas: gigantes de escarcha y fuego, remorhaz, wyverns, quimeras, osos polares, goblins de las cuevas. Clima: ártico/subártico, ventiscas. Amenazas: Auril, la Doncella de Escarcha, cultos elementales, dragones ancestrales.",
-      "Valles": "Criaturas típicas: drow de Cormanthor, arañas gigantes, licántropos del bosque, treants corruptos, bandidos zhentarim. Clima: continental templado, bosques densos. Amenazas: Zhentarim, drow de Szith Morcane, resurgimiento de Myth Drannor.",
-      "Cormyr": "Criaturas típicas: dragones púrpura (vigilantes), gnolls de las fronteras, goblinoides del Paso del Gnoll, no-muertos del Pantano de los Trolls. Clima: templado, lluvias estacionales. Amenazas: Magos de Guerra rebeldes, cultos de Shar, conspiraciones nobiliarias.",
-      "Calimshan": "Criaturas típicas: genasi, djinn, efreet, lamias, yuan-ti, escorpiones gigantes, momias del desierto. Clima: árido, calor extremo, tormentas de arena. Amenazas: pashas criminales, genios desatados, ruinas de Calim y Memnon.",
-      "Chult": "Criaturas típicas: dinosaurios (velociraptores, t-rex), yuan-ti, pteranodontes, zombies de la Maldición de la Muerte, froghemoths. Clima: tropical, lluvias torrenciales, calor húmedo. Amenazas: Acererak, yuan-ti de Omu, la Maldición de la Muerte.",
-      "Thay": "Criaturas típicas: no-muertos (zombies, esqueletos, espectros, liches menores), gólems, quimeras arcanas, demonios invocados. Clima: continental, tormentas arcanas. Amenazas: Szass Tam, los Magos Rojos, experimentación necromática.",
-      "Amn": "Criaturas típicas: ogros de las Montañas de la Nube, bandidos mercantiles, monstruos del Bosque de Snakewood, yuan-ti infiltrados. Clima: mediterráneo, cálido. Amenazas: Casas mercantiles rivales, Sombras de Amn, cultos ocultos.",
-      "Sembia": "Criaturas típicas: espías, asesinos, constructos de guardia, monstruos de alcantarilla, sombras de Shar. Clima: templado continental. Amenazas: netheril, intrigas políticas, cultos de Shar, contrabandistas.",
-      "Mar de la Luna": "Criaturas típicas: aberraciones del Mar de la Luna, zombies de Phlan, dragones negros, beholders. Clima: continental húmedo, nieblas. Amenazas: Mulmaster, resurgimiento del Templo del Mal Elemental, el Dragón Negro.",
-      "Corazón Occidental": "Criaturas típicas: bandidos del camino, licántropos, no-muertos del Darkhold, wyverns de las Colinas del Atardecer. Clima: templado, praderas. Amenazas: Zhentarim de Darkhold, cultos demoníacos, monstruos errantes.",
-      "Tethyr": "Criaturas típicas: monstruos del Bosque de Tethir, ogros, trolls del bosque, elfos salvajes hostiles. Clima: mediterráneo cálido. Amenazas: guerra civil residual, monstruos del bosque profundo, piratas de la costa.",
-      "Rashemen": "Criaturas típicas: berserkers, espíritus de la naturaleza, lobos terribles, fey oscuras, elementales. Clima: frío continental, bosques densos. Amenazas: Thay, hags del Bosque Inmóvil, espíritus ancestrales corruptos.",
+      "Costa de la Espada": "Criaturas típicas: goblins, gnolls, orcos, bandidos del Camino Comercial, dragones jóvenes, sahuagin. Clima: templado oceánico, nieblas frecuentes.",
+      "Costa de la Espada Norte": "Criaturas típicas: trolls de hielo, gigantes de escarcha, lobos invernales, yetis, orcos de Muchas Flechas, dragones blancos. Clima: frío severo.",
+      "Norte": "Criaturas típicas: gigantes de escarcha y fuego, remorhaz, wyverns, quimeras, osos polares. Clima: ártico/subártico.",
+      "Valles": "Criaturas típicas: drow de Cormanthor, arañas gigantes, licántropos, treants corruptos, bandidos zhentarim. Clima: continental templado.",
+      "Cormyr": "Criaturas típicas: gnolls de las fronteras, goblinoides, no-muertos del Pantano de los Trolls. Clima: templado.",
+      "Calimshan": "Criaturas típicas: genasi, djinn, efreet, lamias, yuan-ti, escorpiones gigantes. Clima: árido, calor extremo.",
+      "Chult": "Criaturas típicas: dinosaurios, yuan-ti, pteranodontes, zombies de la Maldición de la Muerte. Clima: tropical.",
+      "Thay": "Criaturas típicas: no-muertos, gólems, quimeras arcanas, demonios invocados. Clima: continental, tormentas arcanas.",
+      "Amn": "Criaturas típicas: ogros, bandidos mercantiles, yuan-ti infiltrados. Clima: mediterráneo.",
+      "Sembia": "Criaturas típicas: espías, asesinos, constructos de guardia, sombras de Shar. Clima: templado continental.",
+      "Mar de la Luna": "Criaturas típicas: aberraciones, zombies de Phlan, dragones negros, beholders. Clima: continental húmedo.",
+      "Corazón Occidental": "Criaturas típicas: bandidos, licántropos, no-muertos del Darkhold, wyverns. Clima: templado.",
+      "Tethyr": "Criaturas típicas: monstruos del Bosque de Tethir, ogros, trolls del bosque. Clima: mediterráneo cálido.",
+      "Rashemen": "Criaturas típicas: berserkers, espíritus, lobos terribles, fey oscuras, elementales. Clima: frío continental.",
     };
 
-    const regionLore = regionLoreMap[effectiveRegion] || `Región: ${effectiveRegion}. Usa criaturas apropiadas para el entorno y clima de esta zona de Faerûn según el lore oficial.`;
+    const regionLore = regionLoreMap[effectiveRegion] || `Región: ${effectiveRegion}. Usa criaturas apropiadas para esta zona de Faerûn.`;
 
     let baseUserPrompt = `COMPOSICIÓN DEL GRUPO (${partySize || partyMembers?.length || 4} jugadores, nivel promedio ${avgLevel}):
 ${partyAnalysis}
@@ -329,9 +320,11 @@ DIFICULTAD OBJETIVO: ${difficultyLabel || "Desafiante"} (nivel ${difficulty}/5)
 REGIÓN: ${effectiveRegion}
 TONO: ${effectiveTone}
 
-CONTEXTO REGIONAL (lore oficial de Forgotten Realms):
-${regionLore}
-IMPORTANTE: Selecciona criaturas que sean coherentes con esta región, su clima, amenazas activas y fauna local según el lore oficial. El entorno del encuentro debe reflejar el clima y la geografía regional.`;
+CONTEXTO REGIONAL: ${regionLore}`;
+
+    if (partyWeaknesses.length > 0) {
+      baseUserPrompt += `\n\nAJUSTES POR COMPOSICIÓN DEL GRUPO:\n${partyWeaknesses.join("\n")}`;
+    }
 
     if (encounterTheme) baseUserPrompt += `\nTEMA DEL ENCUENTRO: ${encounterTheme}`;
     if (specificRequest) baseUserPrompt += `\nPETICIÓN ESPECÍFICA: ${specificRequest}`;
@@ -361,31 +354,18 @@ IMPORTANTE: Selecciona criaturas que sean coherentes con esta región, su clima,
       let userPrompt = baseUserPrompt;
 
       if (attempt === 0) {
-        // First attempt: include target XP range for guidance
-        userPrompt += `\n\nREFERENCIA DE EQUILIBRIO (umbrales del grupo):
+        userPrompt += `\n\nREFERENCIA DE EQUILIBRIO:
 - Fácil: ${thresholds.easy} XP | Moderado: ${thresholds.medium} XP | Difícil: ${thresholds.hard} XP | Letal: ${thresholds.deadly} XP
-- Rango XP ajustado objetivo para dificultad "${difficultyLabel}": ${Math.round(targetRange.min)} – ${Math.round(targetRange.max)} XP
-- Recuerda aplicar el multiplicador por número de criaturas (DMG p.82).
+- Rango XP ajustado objetivo para "${difficultyLabel}": ${Math.round(targetRange.min)} – ${Math.round(targetRange.max)} XP
+- Recuerda aplicar multiplicador por número de criaturas (DMG p.82).
 
-Diseña el encuentro completo siguiendo el formato indicado. Usa SOLO criaturas oficiales de D&D 5e coherentes con la región. Valida el equilibrio con las tablas del DMG.`;
+Diseña el encuentro completo. Usa SOLO criaturas oficiales coherentes con la región.`;
       } else {
-        // Retry: include specific errors to fix
-        userPrompt += `\n\n⚠️ CORRECCIÓN NECESARIA (intento ${attempt + 1}):
-El encuentro anterior tenía estos problemas:
-${validation!.errors.map(e => `- ${e}`).join("\n")}
-
-Datos del intento anterior:
-- XP base: ${validation!.baseXP} | XP ajustado: ${validation!.adjustedXP} | Criaturas: ${validation!.totalCreatures}
-- Clasificación real: ${validation!.classification}
-
-Rango XP ajustado objetivo: ${Math.round(targetRange.min)} – ${Math.round(targetRange.max)} XP
-Umbrales del grupo - Fácil: ${thresholds.easy} | Moderado: ${thresholds.medium} | Difícil: ${thresholds.hard} | Letal: ${thresholds.deadly}
-
-INSTRUCCIONES DE CORRECCIÓN:
-- Ajusta el número y/o tipo de criaturas para que el XP ajustado caiga dentro del rango objetivo.
-- Mantén la sinergia táctica entre criaturas.
-- Mantén la coherencia regional y narrativa.
-- Genera el encuentro COMPLETO de nuevo con el formato correcto.`;
+        userPrompt += `\n\n⚠️ CORRECCIÓN (intento ${attempt + 1}):
+Problemas: ${validation!.errors.map(e => `- ${e}`).join("\n")}
+XP base: ${validation!.baseXP} | XP ajustado: ${validation!.adjustedXP} | Criaturas: ${validation!.totalCreatures}
+Rango objetivo: ${Math.round(targetRange.min)} – ${Math.round(targetRange.max)} XP
+Genera el encuentro COMPLETO de nuevo corregido.`;
       }
 
       console.log(`[generate-encounter] Attempt ${attempt + 1}/${maxAttempts}`);
@@ -396,40 +376,35 @@ INSTRUCCIONES DE CORRECCIÓN:
       );
 
       if (!aiResult) {
-        return new Response(JSON.stringify({ error: "Los servicios de IA están saturados. Intenta en unos segundos." }), {
+        return new Response(JSON.stringify({ error: "Los servicios de IA están saturados." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Track which provider was used (last successful one wins)
       providerInfo = aiResult.provider;
-
       const data = await aiResult.response.json();
       encounterMd = data.choices?.[0]?.message?.content || "";
 
-      // Parse and validate
       const creatures = parseCreaturesFromMarkdown(encounterMd);
       validation = validateEncounter(creatures, partyWithLevels, difficulty);
 
-      console.log(`[generate-encounter] Attempt ${attempt + 1}: ${creatures.length} creature types, ${validation.totalCreatures} total, XP adjusted: ${validation.adjustedXP}, classification: ${validation.classification}, errors: ${validation.errors.length}`);
+      console.log(`[generate-encounter] Attempt ${attempt + 1}: ${creatures.length} types, ${validation.totalCreatures} total, XP: ${validation.adjustedXP}, ${validation.classification}, errors: ${validation.errors.length}`);
 
       if (validation.valid) {
-        console.log(`[generate-encounter] ✅ Encounter validated on attempt ${attempt + 1}`);
+        console.log(`[generate-encounter] ✅ Validated on attempt ${attempt + 1}`);
         break;
       }
 
-      // If we couldn't parse creatures at all but have content, accept it on last attempt
       if (creatures.length === 0 && encounterMd.length > 500 && attempt === maxAttempts - 1) {
-        console.log("[generate-encounter] ⚠️ Could not parse creatures but content looks substantial, accepting.");
+        console.log("[generate-encounter] ⚠️ Could not parse creatures but content substantial, accepting.");
         break;
       }
     }
 
-    // Append validation badge to the markdown
     if (validation) {
       const badge = validation.valid
         ? `\n\n---\n> ✅ **Validación automática:** Encuentro equilibrado. XP ajustado: ${validation.adjustedXP} (${validation.classification}). ${validation.totalCreatures} criaturas.`
-        : `\n\n---\n> ⚠️ **Validación automática:** Posibles desajustes detectados tras ${maxAttempts} intentos. XP ajustado: ${validation.adjustedXP} (${validation.classification}). Revisa el equilibrio manualmente.\n> Problemas: ${validation.errors.join(" | ")}`;
+        : `\n\n---\n> ⚠️ **Validación automática:** Posibles desajustes tras ${maxAttempts} intentos. XP ajustado: ${validation.adjustedXP} (${validation.classification}). Revisa manualmente.\n> Problemas: ${validation.errors.join(" | ")}`;
       encounterMd += badge;
     }
 
