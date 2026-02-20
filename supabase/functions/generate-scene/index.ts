@@ -12,6 +12,8 @@ const SYSTEM_PROMPT = `Eres un experto Dungeon Master de D&D 5e especializado en
 Genera una ESCENA: un evento cerrado, autónomo, que empieza y termina en el mismo momento de juego.
 NO deja consecuencias estructurales obligatorias. Puede usarse para improvisación inmediata.
 
+IMPORTANTE: Las escenas deben ser BREVES y DENSAS. No generes textos largos.
+
 Una escena puede incluir:
 - Combate evitable (siempre debe poder evitarse)
 - Encuentro social
@@ -26,31 +28,37 @@ FORMATO DE RESPUESTA (markdown):
 
 # 🎭 [Título evocador de la escena]
 
+## 📊 Metadatos de Escena
+- **Duración estimada en mesa:** [X-Y minutos]
+- **Intensidad:** [Baja/Media/Alta]
+- **Probabilidad de combate:** [Baja/Media/Alta]
+- **Tipo:** [tipo de escena]
+
 ## 📍 Localización
-[Descripción del lugar, adaptada a la región de Faerûn]
+[Descripción del lugar, adaptada a la región de Faerûn — máximo 3 frases]
 
 ## 🔥 Detonante
-[Qué desencadena la escena — algo que los jugadores ven, oyen o descubren]
+[Qué desencadena la escena — máximo 2 frases]
 
 ## ⚡ Conflicto Central
-[La tensión principal que deben resolver o enfrentar]
+[La tensión principal — máximo 3 frases]
 
 ## 🎲 Posibles Resoluciones
-1. **[Opción 1]:** [Descripción y consecuencia inmediata]
-2. **[Opción 2]:** [Descripción y consecuencia inmediata]
-3. **[Opción 3]:** [Descripción y consecuencia inmediata]
+1. **[Opción 1]:** [Descripción y consecuencia — 1-2 frases]
+2. **[Opción 2]:** [Descripción y consecuencia — 1-2 frases]
+3. **[Opción 3]:** [Descripción y consecuencia — 1-2 frases]
 
 ## 🌀 Posible Giro Inesperado
-[Algo que el DM puede activar para elevar la tensión]
+[Algo que el DM puede activar para elevar la tensión — máximo 2 frases]
 
 ## 🗡️ Criaturas/PNJs Involucrados (si aplica)
-[Breve ficha: nombre, rol, motivación, CA, PG y 1-2 acciones clave]
+[Breve: nombre, rol, motivación, CA, PG y 1-2 acciones clave]
 
 ## 💥 Consecuencias Inmediatas
-[Qué pasa justo después, independientemente de la resolución elegida]
+[Qué pasa justo después — máximo 2 frases]
 
 ## 📝 Notas para el DM
-[Consejos de interpretación, ambiente, música sugerida, CDs relevantes]`;
+[Consejos breves: ambiente, CDs relevantes, cómo escalar tensión si los jugadores se desinteresan]`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -60,7 +68,7 @@ serve(async (req) => {
   try {
     const { nivelGrupo, localizacion, tipo, tono, customPrompt } = await req.json();
 
-    let userPrompt = "Genera una escena cerrada, evocadora y útil para improvisación inmediata en D&D 5e.";
+    let userPrompt = "Genera una escena cerrada, breve y útil para improvisación inmediata en D&D 5e.";
     const details: string[] = [];
     if (nivelGrupo) details.push(`Nivel del grupo: ${nivelGrupo}`);
     if (localizacion) details.push(`Localización: ${localizacion}`);
@@ -81,7 +89,7 @@ serve(async (req) => {
 
     if (!aiResult) {
       return new Response(
-        JSON.stringify({ error: "Todos los servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
+        JSON.stringify({ error: "Todos los servicios de IA están saturados." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

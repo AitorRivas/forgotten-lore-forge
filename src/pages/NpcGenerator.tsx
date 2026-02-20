@@ -15,7 +15,11 @@ const ROLES = [
   "sacerdote", "criminal", "mercenario", "sabio", "espía",
 ];
 
-const IMPORTANCIA = ["menor", "relevante", "antagonista principal"];
+const IMPORTANCIA: { value: string; label: string; desc: string }[] = [
+  { value: "menor", label: "PNJ Menor", desc: "Rápido, solo esenciales para improvisación" },
+  { value: "relevante", label: "PNJ Completo", desc: "Con ficha de combate y profundidad narrativa" },
+  { value: "antagonista principal", label: "Antagonista Principal", desc: "Tácticas avanzadas, acciones legendarias" },
+];
 
 const NpcGenerator = () => {
   const navigate = useNavigate();
@@ -55,12 +59,12 @@ const NpcGenerator = () => {
             Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
+            importancia,
             customPrompt: [
               customPrompt,
               `Nivel aproximado: ${nivel}`,
               rol ? `Rol: ${rol}` : "",
               `Región: ${region}`,
-              `Importancia: ${importancia}`,
             ].filter(Boolean).join("\n"),
           }),
         }
@@ -183,11 +187,22 @@ const NpcGenerator = () => {
                 </select>
               </div>
               <div>
-                <label className="text-sm text-muted-foreground block mb-1">Importancia</label>
-                <select value={importancia} onChange={(e) => setImportancia(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors">
-                  {IMPORTANCIA.map((i) => <option key={i} value={i}>{i}</option>)}
-                </select>
+                <label className="text-sm text-muted-foreground block mb-1">Categoría de PNJ</label>
+                <div className="space-y-2">
+                  {IMPORTANCIA.map((i) => (
+                    <label key={i.value}
+                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                        importancia === i.value ? "border-gold/60 bg-secondary" : "border-border hover:border-gold/30"
+                      }`}>
+                      <input type="radio" name="importancia" value={i.value} checked={importancia === i.value}
+                        onChange={() => setImportancia(i.value)} className="mt-1 accent-[hsl(var(--gold))]" />
+                      <div>
+                        <span className="text-sm font-medium text-foreground">{i.label}</span>
+                        <p className="text-xs text-muted-foreground mt-0.5">{i.desc}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground block mb-1">Detalles extra (opcional)</label>

@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import {
   ArrowLeft, Gem, Loader2, Save, Pencil, Eye, RefreshCw, X,
-  Info, AlertTriangle, Sparkles,
+  Info, AlertTriangle, Sparkles, Shield, Flame,
 } from "lucide-react";
 
 const TIPOS = [
@@ -15,7 +15,21 @@ const TIPOS = [
   "bastón", "pergamino", "poción", "herramienta", "instrumento", "reliquia", "artefacto",
 ];
 
-const RAREZAS = ["común", "poco común", "raro", "muy raro", "legendario"];
+const RAREZAS: { value: string; label: string; color: string }[] = [
+  { value: "común", label: "Común", color: "text-zinc-400" },
+  { value: "poco común", label: "Poco Común", color: "text-green-400" },
+  { value: "raro", label: "Raro", color: "text-blue-400" },
+  { value: "muy raro", label: "Muy Raro", color: "text-purple-400" },
+  { value: "legendario", label: "Legendario", color: "text-amber-400" },
+];
+
+const RARITY_RISK: Record<string, { risk: string; riskColor: string }> = {
+  "común": { risk: "Sin riesgo", riskColor: "text-green-400" },
+  "poco común": { risk: "Riesgo bajo", riskColor: "text-green-400" },
+  "raro": { risk: "Riesgo moderado", riskColor: "text-yellow-400" },
+  "muy raro": { risk: "Riesgo alto", riskColor: "text-orange-400" },
+  "legendario": { risk: "Riesgo extremo", riskColor: "text-red-400" },
+};
 
 const TONOS = ["benigno", "ambiguo", "oscuro", "corruptor"];
 
@@ -190,8 +204,18 @@ const MagicItemGenerator = () => {
                 <select value={rareza} onChange={(e) => setRareza(e.target.value)}
                   className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors">
                   <option value="">Automática</option>
-                  {RAREZAS.map((r) => <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+                  {RAREZAS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
                 </select>
+                {rareza && (
+                  <div className="flex items-center justify-between mt-2 px-1">
+                    <span className={`text-xs font-medium ${RAREZAS.find(r => r.value === rareza)?.color || ""}`}>
+                      <Gem size={12} className="inline mr-1" />{RAREZAS.find(r => r.value === rareza)?.label}
+                    </span>
+                    <span className={`text-xs ${RARITY_RISK[rareza]?.riskColor || ""}`}>
+                      <Shield size={12} className="inline mr-1" />{RARITY_RISK[rareza]?.risk}
+                    </span>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="text-sm text-muted-foreground block mb-1">Nivel del grupo</label>
