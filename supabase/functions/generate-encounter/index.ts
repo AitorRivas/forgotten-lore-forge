@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callAIWithFallback as callAI } from "../_shared/ai-provider.ts";
+import { callAIWithFallback as callAI, AI_ERRORS } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -380,7 +380,7 @@ Genera el encuentro COMPLETO de nuevo corregido.`;
       );
 
       if (!aiResult) {
-        return new Response(JSON.stringify({ error: "Todos los servicios de IA están saturados. Inténtalo en unos minutos." }), {
+        return new Response(JSON.stringify({ error: AI_ERRORS.ALL_UNAVAILABLE }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }

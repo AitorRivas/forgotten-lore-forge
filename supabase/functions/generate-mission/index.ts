@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { callAIWithFallback } from "../_shared/ai-provider.ts";
+import { callAIWithFallback, AI_ERRORS } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -237,7 +237,7 @@ Frases completas. Nunca cortes palabras.`;
       );
 
       if (!aiResult) {
-        return new Response(JSON.stringify({ error: "IA no disponible" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: AI_ERRORS.ALL_UNAVAILABLE }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       const rawText = await aiResult.response.text();
@@ -321,7 +321,7 @@ TONO: ${tono || "épico"}`;
         );
         if (!retryResult) {
           return new Response(
-            JSON.stringify({ error: "Los servicios de IA están saturados. Inténtalo de nuevo." }),
+            JSON.stringify({ error: AI_ERRORS.ALL_UNAVAILABLE }),
             { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
@@ -344,7 +344,7 @@ TONO: ${tono || "épico"}`;
         });
       }
       return new Response(
-        JSON.stringify({ error: "Los servicios de IA están saturados. Inténtalo de nuevo." }),
+        JSON.stringify({ error: AI_ERRORS.ALL_UNAVAILABLE }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

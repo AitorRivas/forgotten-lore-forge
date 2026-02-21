@@ -95,7 +95,7 @@ const SceneGenerator = () => {
       toast.success("¡Escena generada!");
     } catch (e: any) {
       const msg = e.message || "";
-      if (msg.includes("saturados") || msg.includes("no disponible") || msg.includes("429") || msg.includes("402") || msg.includes("rate") || msg.includes("quota")) {
+      if (msg.includes("no disponible") || msg.includes("No hay proveedores") || msg.includes("429") || msg.includes("402") || msg.includes("rate") || msg.includes("quota")) {
         setServiceUnavailable(true);
       } else {
         setServiceUnavailable(true);

@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { callAIWithFallback } from "../_shared/ai-provider.ts";
+import { callAIWithFallback, AI_ERRORS } from "../_shared/ai-provider.ts";
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version" };
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -8,7 +8,7 @@ serve(async (req) => {
     const systemPrompt = `Eres un motor de consecuencias dinámicas para D&D 5e en Forgotten Realms. FORMATO (JSON): {"political_changes":[{"change":"desc","severity":"minor|moderate|major","affected_entities":["..."]}],"social_changes":[{"change":"desc","impact_area":"local|regional"}],"economic_changes":[{"change":"desc","direction":"positive|negative","sectors":["..."]}],"faction_reactions":[{"faction":"nombre","reaction":"desc","stance_shift":"friendly|neutral|hostile","actions_planned":"..."}],"emerging_conflicts":[{"conflict":"desc","parties_involved":["..."],"urgency":"low|medium|high|critical"}],"narrative_opportunities":[{"opportunity":"desc","type":"quest|alliance|discovery|betrayal","hooks":["..."]}],"future_threats":[{"threat":"desc","timeline":"immediate|short_term|long_term","danger_level":"low|medium|high|deadly"}],"rumors":[{"rumor":"desc","truth_percentage":50,"source":"taberna|mercado|templo|corte|submundo"}],"summary":"resumen"}`;
     const userPrompt = `EVENTOS:\n${JSON.stringify(recentEvents || [])}\nDECISIONES:\n${JSON.stringify(partyDecisions || [])}\nPNJs:\n${JSON.stringify(affectedNPCs || [])}\nFACCIONES:\n${JSON.stringify(factions || [])}\nCONFLICTOS:\n${JSON.stringify(activeConflicts || [])}\nREGIÓN: ${region || "No especificada"}\nMEMORIA:\n${JSON.stringify(narrativeContext || {})}\nGenera consecuencias dinámicas.`;
     const aiResult = await callAIWithFallback([{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], { model: "gemini-2.5-pro", temperature: 0.8, response_mime_type: "application/json" });
-    if (!aiResult) return new Response(JSON.stringify({ error: "Ambos servicios de IA están saturados. Espera unos segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!aiResult) return new Response(JSON.stringify({ error: AI_ERRORS.ALL_UNAVAILABLE }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     const data = await aiResult.response.json(); const content = data.choices?.[0]?.message?.content;
     let consequences; try { consequences = JSON.parse(content); } catch { consequences = { raw: content, parse_error: true }; }
     return new Response(JSON.stringify({ consequences }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
