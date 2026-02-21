@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { callAIWithFallback } from "../_shared/ai-provider.ts";
+import { callAIWithFallback, AI_ERRORS } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -75,7 +75,7 @@ serve(async (req) => {
     );
 
     if (!aiResult) {
-      return new Response(JSON.stringify({ error: "Ambos servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
+      return new Response(JSON.stringify({ error: AI_ERRORS.ALL_UNAVAILABLE }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 

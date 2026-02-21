@@ -1,14 +1,20 @@
 /**
- * Sistema de proveedores de IA con prioridad, fallback automático y logging de errores.
+ * AI_ORCHESTRATOR — Sistema centralizado de orquestación de IA.
+ * 
+ * TODA solicitud de IA en la aplicación DEBE pasar por este módulo.
+ * Ningún módulo puede llamar directamente a un proveedor de IA.
  * 
  * Exports principales:
  *   - callAIWithFallback(messages, options) — bajo nivel, envía messages raw
  *   - generateWithFallback(prompt, metadata)  — alto nivel, estandariza formato
  * 
- * Orden de prioridad:
- *   1. Gemini Pro (API directa) — principal
- *   2. ChatGPT (via Lovable AI Gateway) — secundario
- *   3. IA nativa de Lovable (Gemini via Gateway) — terciario
+ * Cadena de fallback (6 intentos antes de fallar):
+ *   1. Gemini Pro (API directa)
+ *   2. Gemini Flash (API directa — cuota separada)
+ *   3. ChatGPT (via Lovable AI Gateway)
+ *   4. IA nativa de Lovable — Gemini via Gateway
+ *   5. IA nativa de Lovable — Flash via Gateway
+ *   6. ChatGPT Nano (via Gateway — modelo más económico)
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -46,13 +52,9 @@ function recordProviderFailure(provider: string): boolean {
   const state = getCircuitState(provider);
   const now = Date.now();
 
-  // Add failure timestamp
   state.failures.push(now);
-
-  // Prune old failures outside the window
   state.failures = state.failures.filter(t => now - t < CIRCUIT_BREAKER_WINDOW_MS);
 
-  // Check if threshold exceeded
   if (state.failures.length >= CIRCUIT_BREAKER_THRESHOLD && !state.unstableSince) {
     state.unstableSince = now;
     console.warn(`🔴 Circuit breaker OPEN: ${provider} marcado como inestable (${state.failures.length} fallos en 10 min). Cooldown: 5 min.`);
@@ -78,9 +80,8 @@ function isProviderUnstable(provider: string): boolean {
 
   const elapsed = Date.now() - state.unstableSince;
   if (elapsed >= CIRCUIT_BREAKER_COOLDOWN_MS) {
-    // Cooldown elapsed — allow a probe attempt (half-open state)
     console.log(`🟡 Circuit breaker HALF-OPEN: ${provider} — probando tras ${Math.round(elapsed / 1000)}s de cooldown.`);
-    state.unstableSince = null; // Reset, will re-trigger if it fails again
+    state.unstableSince = null;
     state.failures = [];
     return false;
   }
@@ -88,6 +89,70 @@ function isProviderUnstable(provider: string): boolean {
   console.log(`⏭️ Saltando ${provider} — inestable (${Math.round((CIRCUIT_BREAKER_COOLDOWN_MS - elapsed) / 1000)}s restantes de cooldown).`);
   return true;
 }
+
+// ══════════════════════════════════════════════════════════
+//  PROVIDER STATUS CACHE — Global availability tracking
+// ══════════════════════════════════════════════════════════
+
+interface ProviderStatus {
+  name: string;
+  status: "available" | "temporarily_unavailable" | "cooldown";
+  cooldownUntil: number | null;
+  lastError: string | null;
+  lastSuccess: number | null;
+}
+
+const providerStatuses: Record<string, ProviderStatus> = {};
+
+function getProviderStatus(name: string): ProviderStatus {
+  if (!providerStatuses[name]) {
+    providerStatuses[name] = {
+      name,
+      status: "available",
+      cooldownUntil: null,
+      lastError: null,
+      lastSuccess: null,
+    };
+  }
+  // Auto-recover from cooldown
+  const ps = providerStatuses[name];
+  if (ps.status === "cooldown" && ps.cooldownUntil && Date.now() > ps.cooldownUntil) {
+    ps.status = "available";
+    ps.cooldownUntil = null;
+  }
+  return ps;
+}
+
+function markProviderFailed(name: string, reason: string) {
+  const ps = getProviderStatus(name);
+  ps.status = "cooldown";
+  ps.cooldownUntil = Date.now() + CIRCUIT_BREAKER_COOLDOWN_MS;
+  ps.lastError = reason;
+}
+
+function markProviderAvailable(name: string) {
+  const ps = getProviderStatus(name);
+  ps.status = "available";
+  ps.cooldownUntil = null;
+  ps.lastError = null;
+  ps.lastSuccess = Date.now();
+}
+
+function isProviderInCooldown(name: string): boolean {
+  const ps = getProviderStatus(name);
+  return ps.status !== "available";
+}
+
+// ══════════════════════════════════════════════════════════
+//  UNIFIED ERROR MESSAGES — Never expose technical details
+// ══════════════════════════════════════════════════════════
+
+/** User-friendly error messages. NEVER expose provider names, status codes, or technical details. */
+export const AI_ERRORS = {
+  ALL_UNAVAILABLE: "No hay proveedores de IA disponibles en este momento. Inténtalo en unos minutos.",
+  GENERATION_FAILED: "Error procesando la solicitud. Inténtalo de nuevo.",
+  INVALID_INPUT: "Los datos de entrada son inválidos. Verifica los campos e intenta de nuevo.",
+} as const;
 
 // ══════════════════════════════════════════════════════════
 //  TYPES
@@ -103,33 +168,21 @@ export interface AIProviderOptions {
 
 /** Metadata para generateWithFallback — describe QUÉ se genera y CÓMO */
 export interface GenerationMetadata {
-  /** Tipo de contenido: "encounter", "npc", "mission", "location", etc. */
   contentType: string;
-  /** Formato de salida esperado: "markdown" | "json" */
   outputFormat?: "markdown" | "json";
-  /** Esquema JSON esperado (si outputFormat es "json"). Descripción textual del esquema. */
   jsonSchema?: string;
-  /** Instrucciones extra de formato que se añaden al system prompt */
   formatInstructions?: string;
-  /** Contexto de campaña (se inyecta automáticamente) */
   campaignContext?: string;
-  /** Región de Faerûn */
   region?: string;
-  /** Tono narrativo */
   tone?: string;
-  /** Nivel del grupo */
   partyLevel?: string;
-  /** ID de usuario para logging */
   userId?: string;
-  /** Modelo preferido (default: gemini-2.5-pro) */
   model?: string;
-  /** Temperatura (default: 0.8) */
   temperature?: number;
-  /** Usar streaming (default: false) */
   stream?: boolean;
 }
 
-type ErrorType = "quota_exhausted" | "rate_limit" | "invalid_token" | "network_error" | "timeout" | "server_error" | "unknown";
+type ErrorType = "quota_exhausted" | "rate_limit" | "invalid_token" | "network_error" | "timeout" | "server_error" | "payment_required" | "unknown";
 
 // ══════════════════════════════════════════════════════════
 //  INTERNAL HELPERS
@@ -138,9 +191,10 @@ type ErrorType = "quota_exhausted" | "rate_limit" | "invalid_token" | "network_e
 function classifyError(status: number | "timeout" | "error", responseBody?: string): ErrorType {
   if (status === "timeout") return "timeout";
   if (status === "error") return "network_error";
+  if (status === 402) return "payment_required";
   if (status === 429) {
     const lower = (responseBody || "").toLowerCase();
-    if (lower.includes("quota") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("402")) {
+    if (lower.includes("quota") || lower.includes("exhausted") || lower.includes("billing")) {
       return "quota_exhausted";
     }
     return "rate_limit";
@@ -158,7 +212,7 @@ function getSupabaseAdmin() {
 }
 
 async function logError(userId: string | undefined, proveedor: string, tipoError: ErrorType, detalles?: string) {
-  console.warn(`📝 Log IA: [${proveedor}] ${tipoError}${detalles ? ` — ${detalles}` : ""}`);
+  console.warn(`📝 Log IA: [${proveedor}] ${tipoError}${detalles ? ` — ${detalles.slice(0, 200)}` : ""}`);
   try {
     const sb = getSupabaseAdmin();
     if (!sb) return;
@@ -239,6 +293,7 @@ async function tryWithRetry(
   const errorType = classifyError(result.status, result.body);
   await logError(userId, name, errorType, result.body);
 
+  // Only retry on rate_limit (temporary), not on quota_exhausted or payment_required
   if (errorType === "rate_limit") {
     console.log(`🔄 ${name} 429: esperando 2s para reintentar...`);
     await sleep(RETRY_DELAY_MS);
@@ -252,6 +307,30 @@ async function tryWithRetry(
 }
 
 // ══════════════════════════════════════════════════════════
+//  MODEL DEGRADATION — Auto-select cheaper model when needed
+// ══════════════════════════════════════════════════════════
+
+/** Get a cheaper/faster alternative model when the requested model's quota is exhausted */
+function getFallbackModel(requestedModel: string): string | null {
+  const fallbacks: Record<string, string> = {
+    "gemini-2.5-pro": "gemini-2.5-flash",
+    "gemini-2.5-flash": "gemini-2.5-flash-lite",
+  };
+  return fallbacks[requestedModel] || null;
+}
+
+/** Map Gemini model to equivalent Gateway model */
+function getGatewayModel(geminiModel: string, tier: "chatgpt" | "native"): string {
+  if (tier === "chatgpt") {
+    if (geminiModel.includes("flash-lite")) return "openai/gpt-5-nano";
+    if (geminiModel.includes("flash")) return "openai/gpt-5-mini";
+    return "openai/gpt-5";
+  }
+  // native tier - prefix with google/
+  return `google/${geminiModel}`;
+}
+
+// ══════════════════════════════════════════════════════════
 //  callAIWithFallback — LOW LEVEL (raw messages)
 // ══════════════════════════════════════════════════════════
 
@@ -261,11 +340,19 @@ export interface AIResult {
   provider: "primary" | "alternative";
   /** User-friendly provider label (no technical details) */
   providerLabel: string;
+  /** Whether a fallback model was used (lighter than requested) */
+  modelDegraded: boolean;
 }
 
 /**
- * Llama a la IA con sistema de fallback triple y logging de errores.
- * Returns AIResult with provider info, or null if all fail.
+ * AI_ORCHESTRATOR.generate — Llamada centralizada con cadena de fallback completa.
+ * 
+ * Cadena de intentos:
+ * 1. Gemini Pro (directo) → 2. Gemini Flash (directo)
+ * 3. ChatGPT (gateway) → 4. Gemini Pro (gateway) → 5. Gemini Flash (gateway)
+ * 6. ChatGPT Nano (gateway)
+ * 
+ * Returns AIResult with provider info, or null if ALL providers fail.
  */
 export async function callAIWithFallback(
   messages: any[],
@@ -275,58 +362,131 @@ export async function callAIWithFallback(
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   const userId = options.userId;
 
-  const geminiModel = options.model || "gemini-2.5-pro";
-  const baseBody: any = { model: geminiModel, messages };
+  const requestedModel = options.model || "gemini-2.5-pro";
+  const baseBody: any = { messages };
   if (options.stream) baseBody.stream = true;
   if (options.temperature !== undefined) baseBody.temperature = options.temperature;
   if (options.response_mime_type) baseBody.response_mime_type = options.response_mime_type;
 
-  const geminiUnstable = isProviderUnstable("Gemini Direct");
+  // ══════════════════════════════════════════════════════════
+  //  TIER 1: Gemini Direct (user's API key) — Pro then Flash
+  // ══════════════════════════════════════════════════════════
 
-  // ── 1. Gemini Pro (API directa) — skip if circuit breaker is open ──
-  if (GEMINI_API_KEY && !geminiUnstable) {
-    const resp = await tryWithRetry(
-      "Gemini Direct", GEMINI_API_URL,
-      { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
-      baseBody, userId,
-    );
-    if (resp) {
-      recordProviderSuccess("Gemini Direct");
-      return { response: resp, provider: "primary", providerLabel: "Gemini Pro" };
+  if (GEMINI_API_KEY) {
+    const geminiModels = [requestedModel];
+    const fallback = getFallbackModel(requestedModel);
+    if (fallback) geminiModels.push(fallback);
+
+    for (const model of geminiModels) {
+      const providerName = `Gemini Direct (${model})`;
+      if (isProviderUnstable(providerName) || isProviderInCooldown(providerName)) continue;
+
+      const resp = await tryWithRetry(
+        providerName, GEMINI_API_URL,
+        { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
+        { ...baseBody, model }, userId,
+      );
+      if (resp) {
+        recordProviderSuccess(providerName);
+        markProviderAvailable(providerName);
+        return {
+          response: resp,
+          provider: "primary",
+          providerLabel: "Generador Principal",
+          modelDegraded: model !== requestedModel,
+        };
+      }
+      recordProviderFailure(providerName);
+      markProviderFailed(providerName, "request_failed");
     }
-    recordProviderFailure("Gemini Direct");
   }
 
-  // ── 2. ChatGPT (via Lovable Gateway) ──
-  if (LOVABLE_API_KEY && !isProviderUnstable("ChatGPT (Gateway)")) {
-    const chatGPTModel = geminiModel.includes("flash") ? "openai/gpt-5-mini" : "openai/gpt-5";
-    const resp = await tryWithRetry(
-      "ChatGPT (Gateway)", LOVABLE_GATEWAY_URL,
-      { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      { ...baseBody, model: chatGPTModel }, userId,
-    );
-    if (resp) {
-      recordProviderSuccess("ChatGPT (Gateway)");
-      return { response: resp, provider: "alternative", providerLabel: "ChatGPT" };
+  // ══════════════════════════════════════════════════════════
+  //  TIER 2: Lovable AI Gateway — ChatGPT equivalent
+  // ══════════════════════════════════════════════════════════
+
+  if (LOVABLE_API_KEY) {
+    const gatewayProviderName = "Gateway ChatGPT";
+    if (!isProviderUnstable(gatewayProviderName) && !isProviderInCooldown(gatewayProviderName)) {
+      const chatGPTModel = getGatewayModel(requestedModel, "chatgpt");
+      const resp = await tryWithRetry(
+        gatewayProviderName, LOVABLE_GATEWAY_URL,
+        { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        { ...baseBody, model: chatGPTModel }, userId,
+      );
+      if (resp) {
+        recordProviderSuccess(gatewayProviderName);
+        markProviderAvailable(gatewayProviderName);
+        return {
+          response: resp,
+          provider: "alternative",
+          providerLabel: "Generador Alternativo",
+          modelDegraded: false,
+        };
+      }
+      recordProviderFailure(gatewayProviderName);
+      markProviderFailed(gatewayProviderName, "request_failed");
     }
-    recordProviderFailure("ChatGPT (Gateway)");
+
+    // ══════════════════════════════════════════════════════════
+    //  TIER 3: Lovable Native — Gemini via Gateway (Pro then Flash)
+    // ══════════════════════════════════════════════════════════
+
+    const nativeModels = [requestedModel];
+    const nativeFallback = getFallbackModel(requestedModel);
+    if (nativeFallback) nativeModels.push(nativeFallback);
+
+    for (const model of nativeModels) {
+      const providerName = `Gateway Native (${model})`;
+      if (isProviderUnstable(providerName) || isProviderInCooldown(providerName)) continue;
+
+      const gatewayModel = getGatewayModel(model, "native");
+      const resp = await tryWithRetry(
+        providerName, LOVABLE_GATEWAY_URL,
+        { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        { ...baseBody, model: gatewayModel }, userId,
+      );
+      if (resp) {
+        recordProviderSuccess(providerName);
+        markProviderAvailable(providerName);
+        return {
+          response: resp,
+          provider: "alternative",
+          providerLabel: "Generador Alternativo",
+          modelDegraded: model !== requestedModel,
+        };
+      }
+      recordProviderFailure(providerName);
+      markProviderFailed(providerName, "request_failed");
+    }
+
+    // ══════════════════════════════════════════════════════════
+    //  TIER 4: Last resort — cheapest model via Gateway
+    // ══════════════════════════════════════════════════════════
+
+    const lastResortName = "Gateway Nano";
+    if (!isProviderUnstable(lastResortName) && !isProviderInCooldown(lastResortName)) {
+      const resp = await tryWithRetry(
+        lastResortName, LOVABLE_GATEWAY_URL,
+        { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        { ...baseBody, model: "openai/gpt-5-nano" }, userId,
+      );
+      if (resp) {
+        recordProviderSuccess(lastResortName);
+        markProviderAvailable(lastResortName);
+        return {
+          response: resp,
+          provider: "alternative",
+          providerLabel: "Generador de Respaldo",
+          modelDegraded: true,
+        };
+      }
+      recordProviderFailure(lastResortName);
+      markProviderFailed(lastResortName, "request_failed");
+    }
   }
 
-  // ── 3. IA nativa Lovable (Gemini via Gateway) ──
-  if (LOVABLE_API_KEY && !isProviderUnstable("Lovable Native")) {
-    const resp = await tryWithRetry(
-      "Lovable Native", LOVABLE_GATEWAY_URL,
-      { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      { ...baseBody, model: `google/${geminiModel}` }, userId,
-    );
-    if (resp) {
-      recordProviderSuccess("Lovable Native");
-      return { response: resp, provider: "alternative", providerLabel: "IA Nativa" };
-    }
-    recordProviderFailure("Lovable Native");
-  }
-
-  console.error("❌ Todos los proveedores de IA han fallado");
+  console.error("❌ AI_ORCHESTRATOR: Todos los proveedores han fallado");
   return null;
 }
 
@@ -335,25 +495,21 @@ export async function callAIWithFallback(
 // ══════════════════════════════════════════════════════════
 
 /**
- * Construye un prompt estandarizado agnóstico de proveedor y lo envía con fallback.
+ * AI_ORCHESTRATOR.generateWithFallback — Punto de entrada de alto nivel.
+ * 
+ * Construye un prompt estandarizado agnóstico de proveedor y lo envía con fallback completo.
  * 
  * Garantías:
- *   - El prompt NO usa sintaxis específica de ningún proveedor (ni Gemini, ni OpenAI).
+ *   - El prompt NO usa sintaxis específica de ningún proveedor.
  *   - Las instrucciones de formato son explícitas y universales.
  *   - La salida es siempre estructurada (markdown con secciones o JSON).
  *   - El mismo prompt produce resultados coherentes en cualquier modelo.
- * 
- * @param systemPrompt  Instrucciones del sistema (rol, reglas, formato de salida)
- * @param userPrompt    Instrucciones del usuario (qué generar, contexto)
- * @param metadata      Configuración de generación
- * @returns Response del proveedor o null si todos fallan
  */
 export async function generateWithFallback(
   systemPrompt: string,
   userPrompt: string,
   metadata: GenerationMetadata = { contentType: "generic" },
 ): Promise<AIResult | null> {
-  // ── Build standardized system prompt ──
   const standardizedSystem = buildStandardizedSystemPrompt(systemPrompt, metadata);
   const standardizedUser = buildStandardizedUserPrompt(userPrompt, metadata);
 
@@ -369,9 +525,6 @@ export async function generateWithFallback(
     userId: metadata.userId,
   };
 
-  // Only set response_mime_type for non-streaming JSON requests
-  // NOTE: This is an optimization hint, NOT a provider-specific feature.
-  // The actual format is enforced via prompt instructions, not provider features.
   if (metadata.outputFormat === "json" && !metadata.stream) {
     options.response_mime_type = "application/json";
   }
@@ -381,12 +534,10 @@ export async function generateWithFallback(
 
 /**
  * Construye el system prompt estandarizado.
- * Envuelve el prompt original con instrucciones universales de formato.
  */
 function buildStandardizedSystemPrompt(originalSystem: string, meta: GenerationMetadata): string {
   const parts: string[] = [];
 
-  // ── Universal preamble ──
   parts.push(`Eres un asistente experto para Dungeon Masters de Dungeons & Dragons 5e.
 Tu tarea es generar contenido de tipo: ${meta.contentType}.
 
@@ -397,7 +548,6 @@ REGLAS UNIVERSALES DE FORMATO:
 4. Tu respuesta debe ser autocontenida y completa.
 5. NO incluyas comentarios meta sobre tu proceso de generación.`);
 
-  // ── Output format instructions ──
   if (meta.outputFormat === "json") {
     parts.push(`
 FORMATO DE SALIDA: JSON ESTRICTO
@@ -420,12 +570,10 @@ FORMATO DE SALIDA: MARKDOWN ESTRUCTURADO
 - Cada sección debe ser autocontenida y claramente separada.`);
   }
 
-  // ── Extra format instructions ──
   if (meta.formatInstructions) {
     parts.push(`\nINSTRUCCIONES ADICIONALES DE FORMATO:\n${meta.formatInstructions}`);
   }
 
-  // ── Original domain-specific system prompt ──
   parts.push(`\n--- INSTRUCCIONES ESPECÍFICAS ---\n${originalSystem}`);
 
   return parts.join("\n");
@@ -433,12 +581,10 @@ FORMATO DE SALIDA: MARKDOWN ESTRUCTURADO
 
 /**
  * Construye el user prompt estandarizado.
- * Inyecta contexto de campaña, región y tono de forma uniforme.
  */
 function buildStandardizedUserPrompt(originalUser: string, meta: GenerationMetadata): string {
   const parts: string[] = [];
 
-  // ── Context header ──
   const hasContext = meta.region || meta.tone || meta.partyLevel || meta.campaignContext;
   if (hasContext) {
     parts.push("=== CONTEXTO DE GENERACIÓN ===");
@@ -449,10 +595,8 @@ function buildStandardizedUserPrompt(originalUser: string, meta: GenerationMetad
     parts.push("=== FIN CONTEXTO ===\n");
   }
 
-  // ── Original user prompt ──
   parts.push(originalUser);
 
-  // ── Output reminder (universal, no provider-specific) ──
   if (meta.outputFormat === "json") {
     parts.push("\nRECUERDA: Responde SOLO con JSON válido. Sin markdown, sin bloques de código, sin texto adicional.");
   }
@@ -464,23 +608,16 @@ function buildStandardizedUserPrompt(originalUser: string, meta: GenerationMetad
 //  UTILITY: Parse robust JSON from AI responses
 // ══════════════════════════════════════════════════════════
 
-/**
- * Parsea JSON de manera robusta desde respuestas de IA.
- * Maneja: bloques de código, texto extra, JSON malformado.
- */
 export function parseAIJsonResponse<T = any>(raw: string, fallback: T): T {
   if (!raw || typeof raw !== "string") return fallback;
 
-  // Try direct parse first
   try { return JSON.parse(raw); } catch { /* continue */ }
 
-  // Try extracting from markdown code block
   const codeBlockMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
   if (codeBlockMatch) {
     try { return JSON.parse(codeBlockMatch[1]); } catch { /* continue */ }
   }
 
-  // Try finding first { ... } or [ ... ]
   const jsonMatch = raw.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
   if (jsonMatch) {
     try { return JSON.parse(jsonMatch[1]); } catch { /* continue */ }

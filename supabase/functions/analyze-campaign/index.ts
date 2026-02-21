@@ -104,7 +104,7 @@ serve(async (req) => {
     );
 
     if (!aiResult) {
-      return new Response(JSON.stringify({ error: "Ambos servicios de IA están saturados. Espera unos segundos e inténtalo de nuevo." }),
+      return new Response(JSON.stringify({ error: "No hay proveedores de IA disponibles en este momento. Inténtalo en unos minutos." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 

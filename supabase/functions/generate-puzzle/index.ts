@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { callAIWithFallback } from "../_shared/ai-provider.ts";
+import { callAIWithFallback, AI_ERRORS } from "../_shared/ai-provider.ts";
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version" };
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -8,7 +8,7 @@ serve(async (req) => {
     const systemPrompt = `Eres un diseñador de puzzles para D&D 5e en Forgotten Realms. Creas puzzles jugables y lógicos. FORMATO (JSON): {"title":"nombre","puzzle_type":"tipo","difficulty":"easy|medium|hard|deadly","estimated_time":"minutos","narrative_context":{"setting":"dónde","origin":"quién lo creó","lore_connection":"lore","story_role":"por qué"},"visual_description":{"room_description":"desc","key_elements":["elementos"],"sensory_details":{"sight":"vista","sound":"sonido","smell":"olor","touch":"tacto","magic_sense":"magia"}},"mechanics":{"core_mechanism":"mecanismo","components":[{"element":"nombre","function":"función","interaction":"interacción"}],"solution_steps":["pasos"],"correct_solution":"solución"},"gradual_hints":[{"level":1,"trigger":"trigger","hint":"pista"}],"common_mistakes":[{"mistake":"error","consequence":"consecuencia","recovery":"recuperación"}],"failure_consequences":{"partial_failure":"parcial","total_failure":"total","narrative_bypass":"bypass"},"alternative_solutions":[{"approach":"método","requirements":"requisitos","outcome":"resultado"}],"story_integration":{"success_reward":"recompensa","loot":"objetos","information_gained":"info","future_hooks":["ganchos"]},"dm_tips":"consejos","summary":"resumen"}`;
     const userPrompt = `REGIÓN: ${region || "FR"}\nTONO: ${tone || "épico"}\nNIVEL: ${partyLevel || "5-10"}\nTIPO: ${puzzleType || "cualquiera"}\n${specificRequest ? `PETICIÓN: ${specificRequest}` : ""}\nCONTEXTO:\n${JSON.stringify(campaignContext || {})}\nMEMORIA:\n${JSON.stringify(narrativeContext || {})}\nDiseña un puzzle jugable.`;
     const aiResult = await callAIWithFallback([{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], { model: "gemini-2.5-pro", temperature: 0.85, response_mime_type: "application/json" });
-    if (!aiResult) return new Response(JSON.stringify({ error: "Ambos servicios de IA están saturados. Espera unos segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!aiResult) return new Response(JSON.stringify({ error: AI_ERRORS.ALL_UNAVAILABLE }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     const data = await aiResult.response.json(); const content = data.choices?.[0]?.message?.content;
     let puzzle; try { puzzle = JSON.parse(content); } catch { puzzle = { raw: content, parse_error: true }; }
     return new Response(JSON.stringify({ puzzle }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
