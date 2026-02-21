@@ -188,20 +188,24 @@ serve(async (req) => {
     let campaignContext: any = null;
 
     if (authHeader.startsWith("Bearer ")) {
-      const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_ANON_KEY")!,
-        { global: { headers: { Authorization: authHeader } } }
-      );
-      const { data } = await supabase.auth.getClaims(authHeader.replace("Bearer ", ""));
-      userId = data?.claims?.sub || null;
-      if (campaignId && userId) {
-        const { data: campaign } = await supabase
-          .from("campaigns")
-          .select("name, region, tone, level_range, narrative_context")
-          .eq("id", campaignId)
-          .single();
-        if (campaign) campaignContext = campaign;
+      try {
+        const supabase = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_ANON_KEY")!,
+          { global: { headers: { Authorization: authHeader } } }
+        );
+        const { data: { user } } = await supabase.auth.getUser();
+        userId = user?.id || null;
+        if (campaignId && userId) {
+          const { data: campaign } = await supabase
+            .from("campaigns")
+            .select("name, region, tone, level_range, narrative_context")
+            .eq("id", campaignId)
+            .single();
+          if (campaign) campaignContext = campaign;
+        }
+      } catch (authErr) {
+        console.warn("Auth extraction failed, continuing without user context:", authErr);
       }
     }
 
@@ -372,11 +376,11 @@ Genera el encuentro COMPLETO de nuevo corregido.`;
 
       const aiResult = await callAI(
         [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
-        { temperature: attempt === 0 ? 0.8 : 0.5 }
+        { temperature: attempt === 0 ? 0.8 : 0.5, userId: userId || undefined }
       );
 
       if (!aiResult) {
-        return new Response(JSON.stringify({ error: "Los servicios de IA están saturados." }), {
+        return new Response(JSON.stringify({ error: "Todos los servicios de IA están saturados. Inténtalo en unos minutos." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }

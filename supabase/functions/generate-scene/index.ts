@@ -89,7 +89,7 @@ serve(async (req) => {
 
     if (!aiResult) {
       return new Response(
-        JSON.stringify({ error: "Todos los servicios de IA están saturados." }),
+        JSON.stringify({ error: "Todos los servicios de IA están saturados. Inténtalo en unos minutos." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

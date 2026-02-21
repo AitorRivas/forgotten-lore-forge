@@ -241,10 +241,12 @@ const EncounterGenerator = () => {
       setProviderType(data.provider || "primary");
       toast.success("¡Encuentro generado!");
     } catch (e: any) {
-      if (e.message?.includes("saturados") || e.message?.includes("no disponible") || e.message?.includes("429")) {
+      const msg = e.message || "";
+      if (msg.includes("saturados") || msg.includes("no disponible") || msg.includes("429") || msg.includes("402") || msg.includes("rate") || msg.includes("quota")) {
         setServiceUnavailable(true);
       } else {
-        toast.error(e.message || "Error generando encuentro");
+        setServiceUnavailable(true);
+        console.error("Encounter generation error:", msg);
       }
     } finally {
       setGenerating(false);
