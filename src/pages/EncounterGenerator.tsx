@@ -6,16 +6,15 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import {
-  ArrowLeft, Swords, Loader2, Save, Pencil, Eye, Users, Shield,
-  Skull, Flame, Zap, Target, MapPin, RefreshCw, X, Link2, Plus, Trash2,
-  ChevronDown, BookOpen, Mountain, Bug, BarChart3, Star, Sparkles, Brain, ScrollText, Settings2,
-  Check, Scale, Info, AlertTriangle,
+  Swords, Loader2, Save, Pencil, Eye, Users,
+  Zap, MapPin, RefreshCw, X, Link2, Plus, Trash2,
+  ChevronDown, BookOpen, Mountain, Bug, BarChart3, Star, Sparkles, Brain, ScrollText,
+  Check, Scale, Info, AlertTriangle, Target, Skull, Flame,
 } from "lucide-react";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import PageHeader from "@/components/shared/PageHeader";
+import GenerationStatus from "@/components/shared/GenerationStatus";
+import FormField from "@/components/shared/FormField";
 
 type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
 
@@ -45,8 +44,6 @@ const DIFFICULTY_LABELS: Record<DifficultyLevel, { label: string; color: string 
 
 const EncounterGenerator = () => {
   const navigate = useNavigate();
-
-  // Party composition
   const [partyMembers, setPartyMembers] = useState<PartyMember[]>([
     { id: crypto.randomUUID(), className: "Guerrero", level: 5 },
   ]);
@@ -56,14 +53,12 @@ const EncounterGenerator = () => {
   const [region, setRegion] = useState("Costa de la Espada");
   const [selectedMissionId, setSelectedMissionId] = useState("");
 
-  // Read missionId from URL params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const mId = params.get("missionId");
     if (mId) setSelectedMissionId(mId);
   }, []);
 
-  // UI state
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [revalidating, setRevalidating] = useState(false);
@@ -101,12 +96,8 @@ const EncounterGenerator = () => {
     fetchMisiones();
   }, []);
 
-  // Build flat region list for dropdown
-  const regionOptions = useMemo(() => {
-    return faerunLocations.map((loc) => loc.region_mayor);
-  }, []);
+  const regionOptions = useMemo(() => faerunLocations.map((loc) => loc.region_mayor), []);
 
-  // Section definitions for collapsible display
   const SECTION_DEFS: { key: string; pattern: RegExp; label: string; icon: React.ElementType; defaultOpen?: boolean }[] = [
     { key: "resumen", pattern: /^##\s*📊\s*Resumen del Encuentro/m, label: "Resumen del Encuentro", icon: BarChart3, defaultOpen: true },
     { key: "tactico", pattern: /^##\s*🎯\s*Resumen Táctico/m, label: "Resumen Táctico", icon: Target, defaultOpen: true },
@@ -119,71 +110,45 @@ const EncounterGenerator = () => {
     { key: "ganando", pattern: /^###\s*🏆\s*Si.*Ganando/m, label: "Fase: Enemigos Ganando", icon: Flame },
     { key: "perdiendo", pattern: /^###\s*💀\s*Si.*Perdiendo/m, label: "Fase: Enemigos Perdiendo", icon: Skull },
     { key: "escenario", pattern: /^##\s*🗺️\s*Descripción del Escenario/m, label: "Escenario", icon: Mountain },
-    { key: "recompensas", pattern: /^##\s*💰\s*Recompensas/m, label: "Recompensas", icon: Shield },
+    { key: "recompensas", pattern: /^##\s*💰\s*Recompensas/m, label: "Recompensas", icon: Star },
     { key: "notas", pattern: /^##\s*📝\s*Notas del DM/m, label: "Notas del DM", icon: Pencil },
   ];
 
   const parseEncounterSections = useCallback((md: string) => {
     if (!md) return [];
-
-    // Find all ## headings and split by them
     const headingRegex = /^(## .+)$/gm;
     const matches: { heading: string; start: number }[] = [];
     let m: RegExpExecArray | null;
     while ((m = headingRegex.exec(md)) !== null) {
       matches.push({ heading: m[1], start: m.index });
     }
-
     if (matches.length === 0) {
       return [{ key: "full", label: "Encuentro Completo", icon: Swords, content: md, defaultOpen: true }];
     }
-
-    // Extract title (everything before first ##)
     const titleContent = md.slice(0, matches[0].start).trim();
     const sections: { key: string; label: string; icon: React.ElementType; content: string; defaultOpen?: boolean }[] = [];
-
     if (titleContent) {
       sections.push({ key: "titulo", label: "Título", icon: Swords, content: titleContent, defaultOpen: true });
     }
-
     for (let i = 0; i < matches.length; i++) {
       const start = matches[i].start;
       const end = i + 1 < matches.length ? matches[i + 1].start : md.length;
       const sectionContent = md.slice(start, end).trim();
       const heading = matches[i].heading;
-
-      // Try to match to a known section
       const matched = SECTION_DEFS.find((s) => s.pattern.test(heading));
       if (matched) {
-        sections.push({
-          key: matched.key,
-          label: matched.label,
-          icon: matched.icon,
-          content: sectionContent,
-          defaultOpen: matched.defaultOpen,
-        });
+        sections.push({ key: matched.key, label: matched.label, icon: matched.icon, content: sectionContent, defaultOpen: matched.defaultOpen });
       } else {
-        // Fallback: use heading text as label
         const cleanLabel = heading.replace(/^##\s*/, "").replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "").trim();
-        sections.push({
-          key: `section-${i}`,
-          label: cleanLabel || `Sección ${i + 1}`,
-          icon: ScrollText,
-          content: sectionContent,
-        });
+        sections.push({ key: `section-${i}`, label: cleanLabel || `Sección ${i + 1}`, icon: ScrollText, content: sectionContent });
       }
     }
-
     return sections;
   }, []);
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const toggleSection = (key: string) => { setOpenSections((prev) => ({ ...prev, [key]: !prev[key] })); };
 
-  const toggleSection = (key: string) => {
-    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  // Initialize open sections when encounter changes
   useEffect(() => {
     if (encounter) {
       const sections = parseEncounterSections(encounter);
@@ -208,15 +173,11 @@ const EncounterGenerator = () => {
 
       const body = {
         partyMembers: partyMembers.map((m) => ({ className: m.className, level: m.level })),
-        partySize: partyMembers.length,
-        avgLevel,
-        difficulty: difficultyLevel,
+        partySize: partyMembers.length, avgLevel, difficulty: difficultyLevel,
         difficultyLabel: DIFFICULTY_LABELS[difficultyLevel].label,
-        region,
-        encounterTheme: encounterTheme || undefined,
+        region, encounterTheme: encounterTheme || undefined,
         specificRequest: specificRequest || undefined,
-        missionId: selectedMissionId || undefined,
-        userId: user?.id,
+        missionId: selectedMissionId || undefined, userId: user?.id,
       };
 
       const resp = await fetch(
@@ -239,15 +200,10 @@ const EncounterGenerator = () => {
       const data = await resp.json();
       setEncounter(data.encounter_markdown);
       setProviderType(data.provider || "primary");
-      toast.success("¡Encuentro generado!");
+      toast.success("Contenido generado con éxito");
     } catch (e: any) {
-      const msg = e.message || "";
-      if (msg.includes("no disponible") || msg.includes("No hay proveedores") || msg.includes("429") || msg.includes("402") || msg.includes("rate") || msg.includes("quota")) {
-        setServiceUnavailable(true);
-      } else {
-        setServiceUnavailable(true);
-        console.error("Encounter generation error:", msg);
-      }
+      setServiceUnavailable(true);
+      console.error("Encounter generation error:", e.message);
     } finally {
       setGenerating(false);
     }
@@ -259,57 +215,34 @@ const EncounterGenerator = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Debes iniciar sesión para guardar");
-
       const content = editMode ? editedContent : encounter;
       const diffLabel = DIFFICULTY_LABELS[difficultyLevel].label;
 
       if (savedEncounterId) {
-        // Update existing record
         const { error } = await supabase.from("encounters" as any).update({
-          texto_completo_editable: content,
-          nivel_grupo: avgLevel,
-          numero_personajes: partyMembers.length,
-          dificultad: difficultyLevel,
+          texto_completo_editable: content, nivel_grupo: avgLevel,
+          numero_personajes: partyMembers.length, dificultad: difficultyLevel,
           tags: [region, diffLabel, encounterTheme].filter(Boolean),
         } as any).eq("id", savedEncounterId);
         if (error) throw error;
-
-        // Apply edits to the live encounter view
-        if (editMode) {
-          setEncounter(editedContent);
-          setEditMode(false);
-        }
-        toast.success("¡Cambios guardados!");
+        if (editMode) { setEncounter(editedContent); setEditMode(false); }
+        toast.success("Contenido generado con éxito");
       } else {
-        // Insert new record
         const { data, error } = await supabase.from("encounters" as any).insert({
-          user_id: user.id,
-          mission_id: selectedMissionId || null,
-          tipo: "encuentro",
-          nivel_grupo: avgLevel,
-          numero_personajes: partyMembers.length,
-          dificultad: difficultyLevel,
+          user_id: user.id, mission_id: selectedMissionId || null, tipo: "encuentro",
+          nivel_grupo: avgLevel, numero_personajes: partyMembers.length, dificultad: difficultyLevel,
           criaturas_json: partyMembers.map((m) => ({ className: m.className, level: m.level })),
           estrategia_json: { theme: encounterTheme || null, region, specificRequest: specificRequest || null },
-          texto_completo_editable: content,
-          xp_total: 0,
+          texto_completo_editable: content, xp_total: 0,
           tags: [region, diffLabel, encounterTheme].filter(Boolean),
         } as any).select("id").single();
         if (error) throw error;
         setSavedEncounterId((data as any)?.id || null);
-
-        if (editMode) {
-          setEncounter(editedContent);
-          setEditMode(false);
-        }
-        toast.success(
-          selectedMissionId
-            ? "¡Encuentro guardado y vinculado a la misión!"
-            : "¡Encuentro guardado en tu biblioteca!"
-        );
+        if (editMode) { setEncounter(editedContent); setEditMode(false); }
+        toast.success("Contenido generado con éxito");
       }
     } catch (e: any) {
-      toast.error(e.message || "Error guardando");
+      toast.error("Se ha producido un error. Intenta de nuevo.");
     } finally {
       setSaving(false);
     }
@@ -333,10 +266,8 @@ const EncounterGenerator = () => {
           body: JSON.stringify({
             encounterText: content,
             partyMembers: partyMembers.map((m) => ({ className: m.className, level: m.level })),
-            avgLevel,
-            partySize: partyMembers.length,
-            difficulty: difficultyLevel,
-            difficultyLabel: DIFFICULTY_LABELS[difficultyLevel].label,
+            avgLevel, partySize: partyMembers.length,
+            difficulty: difficultyLevel, difficultyLabel: DIFFICULTY_LABELS[difficultyLevel].label,
           }),
         }
       );
@@ -346,319 +277,181 @@ const EncounterGenerator = () => {
       }
       const data = await resp.json();
       setValidationResult(data.validation_markdown);
-      toast.success("Revalidación completada");
+      toast.success("Contenido generado con éxito");
     } catch (e: any) {
-      toast.error(e.message || "Error revalidando equilibrio");
+      toast.error("Se ha producido un error. Intenta de nuevo.");
     } finally {
       setRevalidating(false);
     }
   }, [encounter, editMode, editedContent, partyMembers, avgLevel, difficultyLevel]);
 
   const markdownContent = encounter || "";
+  const inputClass = "w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold transition-colors";
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center gap-4">
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h1 className="font-display text-2xl text-gold text-glow flex items-center gap-2">
-              <Swords size={24} /> Generador de Encuentros
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Crea encuentros híbridos personalizados para D&D 5e
-            </p>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background pb-6">
+      <PageHeader
+        title="Generador de Encuentros"
+        subtitle="Encuentros híbridos personalizados para D&D 5e"
+        icon={Swords}
+        backPath="/dashboard"
+        breadcrumbs={[{ label: "Inicio", path: "/dashboard" }, { label: "Encuentros" }]}
+      />
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-4xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left panel - Form */}
           <div className="lg:col-span-1 space-y-5">
             {/* Party composition */}
-            <div className="ornate-border rounded-lg p-5 parchment-bg">
-              <h3 className="font-display text-lg text-gold flex items-center gap-2 mb-4">
-                <Users size={18} /> Grupo de Jugadores
+            <div className="ornate-border rounded-lg p-4 parchment-bg">
+              <h3 className="font-display text-base text-gold flex items-center gap-2 mb-4">
+                <Users size={16} /> Grupo de Jugadores
               </h3>
-
               <div className="space-y-3">
                 {partyMembers.map((member, idx) => (
                   <div key={member.id} className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground w-5 shrink-0">{idx + 1}.</span>
-                    <select
-                      value={member.className}
-                      onChange={(e) => updateMember(member.id, "className", e.target.value)}
-                      className="flex-1 bg-secondary border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-gold transition-colors"
-                    >
-                      {CLASSES_5E.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
+                    <select value={member.className} onChange={(e) => updateMember(member.id, "className", e.target.value)} className={`flex-1 ${inputClass}`}>
+                      {CLASSES_5E.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
-                    <input
-                      type="number"
-                      min={1}
-                      max={20}
-                      value={member.level}
+                    <input type="number" min={1} max={20} value={member.level}
                       onChange={(e) => updateMember(member.id, "level", Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
-                      className="w-16 bg-secondary border border-border rounded px-2 py-1.5 text-sm text-foreground text-center focus:outline-none focus:border-gold transition-colors"
-                    />
-                    <button
-                      onClick={() => removeMember(member.id)}
-                      disabled={partyMembers.length <= 1}
-                      className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-30"
-                    >
+                      className={`w-16 text-center ${inputClass}`} />
+                    <button onClick={() => removeMember(member.id)} disabled={partyMembers.length <= 1}
+                      className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-30">
                       <Trash2 size={14} />
                     </button>
                   </div>
                 ))}
-
-                <button
-                  onClick={addMember}
-                  className="w-full flex items-center justify-center gap-1.5 border border-dashed border-border rounded py-2 text-xs text-muted-foreground hover:text-gold hover:border-gold/40 transition-colors"
-                >
+                <button onClick={addMember}
+                  className="w-full flex items-center justify-center gap-1.5 border border-dashed border-border rounded py-2 text-xs text-muted-foreground hover:text-gold hover:border-gold/40 transition-colors">
                   <Plus size={14} /> Añadir personaje
                 </button>
               </div>
-
-              {/* Summary */}
               <div className="mt-4 pt-3 border-t border-border flex justify-between text-xs">
-                <span className="text-muted-foreground">
-                  <strong className="text-foreground">{partyMembers.length}</strong> personaje{partyMembers.length !== 1 ? "s" : ""}
-                </span>
-                <span className="text-muted-foreground">
-                  Nivel promedio: <strong className="text-gold">{avgLevel}</strong>
-                </span>
+                <span className="text-muted-foreground"><strong className="text-foreground">{partyMembers.length}</strong> personaje{partyMembers.length !== 1 ? "s" : ""}</span>
+                <span className="text-muted-foreground">Nivel promedio: <strong className="text-gold">{avgLevel}</strong></span>
               </div>
-
-              {/* Region */}
-              <div className="mt-4">
-                <label className="text-sm text-muted-foreground block mb-1">Región</label>
-                <select
-                  value={region}
-                  onChange={(e) => setRegion(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold transition-colors"
-                >
-                  {regionOptions.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
+              <FormField label="Región" required>
+                <select value={region} onChange={(e) => setRegion(e.target.value)} className={inputClass}>
+                  {regionOptions.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
-              </div>
+              </FormField>
             </div>
 
-            {/* Difficulty scale 1-5 */}
-            <div className="ornate-border rounded-lg p-5 parchment-bg">
-              <h3 className="font-display text-lg text-gold flex items-center gap-2 mb-4">
-                <Zap size={18} /> Dificultad
+            {/* Difficulty */}
+            <div className="ornate-border rounded-lg p-4 parchment-bg">
+              <h3 className="font-display text-base text-gold flex items-center gap-2 mb-4">
+                <Zap size={16} /> Dificultad<span className="text-gold ml-0.5">*</span>
               </h3>
               <div className="flex gap-1.5">
                 {([1, 2, 3, 4, 5] as DifficultyLevel[]).map((lvl) => {
                   const { label, color } = DIFFICULTY_LABELS[lvl];
                   return (
-                    <button
-                      key={lvl}
-                      onClick={() => setDifficultyLevel(lvl)}
-                      className={`flex-1 flex flex-col items-center gap-1 py-3 rounded border transition-all ${
-                        difficultyLevel === lvl
-                          ? "border-gold/60 bg-secondary"
-                          : "border-border hover:border-gold/30"
-                      }`}
-                    >
+                    <button key={lvl} onClick={() => setDifficultyLevel(lvl)}
+                      className={`flex-1 flex flex-col items-center gap-1 py-3 rounded border transition-all ${difficultyLevel === lvl ? "border-gold/60 bg-secondary" : "border-border hover:border-gold/30"}`}>
                       <span className={`font-display text-lg ${color}`}>{lvl}</span>
                       <span className="text-[10px] text-muted-foreground leading-tight">{label}</span>
                     </button>
                   );
                 })}
               </div>
-              <p className="text-xs text-muted-foreground mt-2 text-center">
-                Seleccionado: <strong className={DIFFICULTY_LABELS[difficultyLevel].color}>{DIFFICULTY_LABELS[difficultyLevel].label}</strong>
-              </p>
             </div>
 
-            {/* Theme & details */}
-            <div className="ornate-border rounded-lg p-5 parchment-bg">
-              <h3 className="font-display text-lg text-gold flex items-center gap-2 mb-4">
-                <MapPin size={18} /> Detalles del Encuentro
+            {/* Details */}
+            <div className="ornate-border rounded-lg p-4 parchment-bg space-y-3">
+              <h3 className="font-display text-base text-gold flex items-center gap-2 mb-2">
+                <MapPin size={16} /> Detalles
               </h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-sm text-muted-foreground block mb-1">Tema (opcional)</label>
-                  <input
-                    type="text"
-                    value={encounterTheme}
-                    onChange={(e) => setEncounterTheme(e.target.value)}
-                    placeholder="Ej: emboscada, negociación, misterio"
-                    className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-muted-foreground block mb-1">Petición específica (opcional)</label>
-                  <textarea
-                    value={specificRequest}
-                    onChange={(e) => setSpecificRequest(e.target.value)}
-                    placeholder="Describe lo que quieres en este encuentro..."
-                    rows={3}
-                    className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold transition-colors resize-none"
-                  />
-                </div>
-              </div>
+              <FormField label="Tema" hint="Ej: emboscada, negociación, misterio">
+                <input type="text" value={encounterTheme} onChange={(e) => setEncounterTheme(e.target.value)}
+                  placeholder="Ej: emboscada, negociación, misterio" className={inputClass} />
+              </FormField>
+              <FormField label="Petición específica" hint="Describe lo que quieres">
+                <textarea value={specificRequest} onChange={(e) => setSpecificRequest(e.target.value)}
+                  placeholder="Describe lo que quieres en este encuentro..." rows={3} className={`${inputClass} resize-none`} />
+              </FormField>
             </div>
 
             {/* Mission link */}
-            <div className="ornate-border rounded-lg p-5 parchment-bg">
-              <h3 className="font-display text-lg text-gold flex items-center gap-2 mb-3">
-                <Link2 size={18} /> Vincular a Misión
-              </h3>
-              <select
-                value={selectedMissionId}
-                onChange={(e) => setSelectedMissionId(e.target.value)}
-                className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold transition-colors"
-              >
-                <option value="">Sin vincular (biblioteca general)</option>
-                {misiones.map((m) => (
-                  <option key={m.id} value={m.id}>{m.titulo}</option>
-                ))}
-              </select>
+            <div className="ornate-border rounded-lg p-4 parchment-bg">
+              <FormField label="Vincular a Misión">
+                <select value={selectedMissionId} onChange={(e) => setSelectedMissionId(e.target.value)} className={inputClass}>
+                  <option value="">Sin vincular (biblioteca general)</option>
+                  {misiones.map((m) => <option key={m.id} value={m.id}>{m.titulo}</option>)}
+                </select>
+              </FormField>
             </div>
 
             {/* Generate button */}
-            <button
-              onClick={generateEncounter}
-              disabled={generating}
-              className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-display py-3 rounded hover:bg-gold-dark transition-colors disabled:opacity-50 text-lg"
-            >
-              {generating ? (
-                <Loader2 size={20} className="animate-spin" />
-              ) : (
-                <Swords size={20} />
-              )}
-              {generating ? "Creando encuentro..." : "Crear Encuentro"}
+            <button onClick={generateEncounter} disabled={generating}
+              className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-display py-3.5 rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50 text-base">
+              {generating ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+              {generating ? "Generando contenido…" : "Generar Encuentro"}
             </button>
           </div>
 
           {/* Right panel - Results */}
           <div className="lg:col-span-2">
             {serviceUnavailable && !encounter ? (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ornate-border rounded-lg p-10 parchment-bg text-center space-y-4">
-                <AlertTriangle className="mx-auto text-amber-400" size={40} />
-                <h3 className="font-display text-lg text-foreground">
-                  Servicio temporalmente no disponible
-                </h3>
-                <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  El servicio de generación está temporalmente no disponible. Inténtalo en unos minutos.
-                </p>
-                <button
-                  onClick={generateEncounter}
-                  disabled={generating}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground font-display rounded hover:bg-gold-dark transition-colors disabled:opacity-50"
-                >
-                  {generating ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                  Reintentar
-                </button>
-              </motion.div>
+              <GenerationStatus status="error" entityName="Encuentro" serviceUnavailable onRetry={generateEncounter} retrying={generating} />
             ) : encounter ? (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                {/* Provider indicator */}
                 {providerType === "alternative" && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 rounded px-3 py-1.5 w-fit">
-                    <Info size={12} />
-                    <span>Generado con proveedor alternativo por disponibilidad temporal.</span>
+                    <Info size={12} /><span>Generado con proveedor alternativo</span>
                   </div>
                 )}
                 {/* Action buttons */}
                 <div className="flex flex-wrap gap-2 justify-end">
-                  <button
-                    onClick={generateEncounter}
-                    disabled={generating}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-accent border border-border rounded text-sm text-foreground hover:border-gold/50 transition-colors disabled:opacity-50"
-                  >
-                    {generating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                    Regenerar Encuentro
+                  <button onClick={generateEncounter} disabled={generating}
+                    className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-xs text-foreground hover:border-gold/40 transition-colors disabled:opacity-50">
+                    {generating ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Regenerar
                   </button>
-                  <button
-                    onClick={() => {
-                      setEditMode(!editMode);
-                      if (!editMode) setEditedContent(markdownContent);
-                    }}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded text-sm transition-colors border ${
-                      editMode
-                        ? "bg-gold/20 text-gold border-gold/40"
-                        : "border-border text-foreground hover:border-gold/50"
-                    }`}
-                  >
-                    <Pencil size={14} /> Editar Manualmente
+                  <button onClick={() => { setEditMode(!editMode); if (!editMode) setEditedContent(markdownContent); }}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs transition-colors border ${editMode ? "bg-gold/20 text-gold border-gold/40" : "border-border text-foreground hover:border-gold/40"}`}>
+                    {editMode ? <><Eye size={13} /> Vista</> : <><Pencil size={13} /> Editar</>}
                   </button>
-                  <button
-                    onClick={revalidateBalance}
-                    disabled={revalidating || generating}
-                    className="flex items-center gap-1.5 px-4 py-2 border border-border rounded text-sm text-foreground hover:border-gold/50 transition-colors disabled:opacity-50"
-                  >
-                    {revalidating ? <Loader2 size={14} className="animate-spin" /> : <Scale size={14} />}
-                    {revalidating ? "Revalidando..." : "Revalidar Equilibrio"}
+                  <button onClick={revalidateBalance} disabled={revalidating || generating}
+                    className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-xs text-foreground hover:border-gold/40 transition-colors disabled:opacity-50">
+                    {revalidating ? <Loader2 size={13} className="animate-spin" /> : <Scale size={13} />}
+                    {revalidating ? "Revalidando…" : "Revalidar"}
                   </button>
-                  <button
-                    onClick={saveEncounter}
-                    disabled={saving || generating}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-display hover:bg-gold-dark transition-colors disabled:opacity-50"
-                  >
-                    {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                    {saving ? "Guardando..." : savedEncounterId ? "Actualizar" : "Guardar en Biblioteca"}
+                  <button onClick={saveEncounter} disabled={saving || generating}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-display hover:bg-gold-dark transition-colors disabled:opacity-50">
+                    {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                    {saving ? "Guardando…" : savedEncounterId ? "Guardado ✓" : "Guardar"}
                   </button>
-                  <button
-                    onClick={() => { setEncounter(null); setEditMode(false); setSavedEncounterId(null); setValidationResult(null); }}
-                    className="flex items-center gap-1.5 px-3 py-2 border border-border rounded text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <X size={14} /> Descartar
+                  <button onClick={() => { setEncounter(null); setEditMode(false); setSavedEncounterId(null); setValidationResult(null); }}
+                    className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    <X size={13} /> Descartar
                   </button>
                 </div>
 
-                {/* Edit mode */}
                 {editMode ? (
-                  <div className="ornate-border rounded-lg p-6 parchment-bg">
-                    <textarea
-                      value={editedContent}
-                      onChange={(e) => setEditedContent(e.target.value)}
-                      className="w-full min-h-[600px] bg-secondary/50 border border-border rounded p-4 text-sm text-foreground font-mono leading-relaxed focus:outline-none focus:border-gold/50 transition-colors resize-y"
-                    />
+                  <div className="ornate-border rounded-lg p-5 parchment-bg">
+                    <textarea value={editedContent} onChange={(e) => setEditedContent(e.target.value)}
+                      className="w-full min-h-[600px] bg-secondary/50 border border-border rounded p-4 text-sm text-foreground font-mono leading-relaxed focus:outline-none focus:border-gold/50 transition-colors resize-y" />
                   </div>
                 ) : (
-                  /* Collapsible sections */
                   <div className="space-y-2">
                     {parseEncounterSections(markdownContent).map((section) => {
                       const Icon = section.icon;
                       const isOpen = openSections[section.key] ?? section.defaultOpen ?? false;
                       return (
-                        <Collapsible
-                          key={section.key}
-                          open={isOpen}
-                          onOpenChange={() => toggleSection(section.key)}
-                        >
+                        <Collapsible key={section.key} open={isOpen} onOpenChange={() => toggleSection(section.key)}>
                           <CollapsibleTrigger asChild>
-                            <button className="w-full ornate-border rounded-lg parchment-bg px-5 py-3 flex items-center justify-between hover:border-gold/50 transition-all group">
+                            <button className="w-full ornate-border rounded-lg parchment-bg px-4 py-3 flex items-center justify-between hover:border-gold/50 transition-all group">
                               <div className="flex items-center gap-3">
-                                <Icon size={18} className="text-gold" />
-                                <span className="font-display text-sm text-foreground group-hover:text-gold transition-colors">
-                                  {section.label}
-                                </span>
+                                <Icon size={16} className="text-gold" />
+                                <span className="font-display text-sm text-foreground group-hover:text-gold transition-colors">{section.label}</span>
                               </div>
-                              <ChevronDown
-                                size={16}
-                                className={`text-muted-foreground transition-transform duration-200 ${
-                                  isOpen ? "rotate-180" : ""
-                                }`}
-                              />
+                              <ChevronDown size={16} className={`text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
                             </button>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
-                            <div className="ornate-border rounded-b-lg border-t-0 px-5 py-4 parchment-bg -mt-1">
-                              <div className="prose-fantasy text-sm">
-                                <ReactMarkdown>{section.content}</ReactMarkdown>
-                              </div>
+                            <div className="ornate-border rounded-b-lg border-t-0 px-4 py-4 parchment-bg -mt-1">
+                              <div className="prose-fantasy text-sm"><ReactMarkdown>{section.content}</ReactMarkdown></div>
                             </div>
                           </CollapsibleContent>
                         </Collapsible>
@@ -667,45 +460,25 @@ const EncounterGenerator = () => {
                   </div>
                 )}
 
-                {/* Validation result panel */}
                 {validationResult && (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="ornate-border rounded-lg p-6 parchment-bg">
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="ornate-border rounded-lg p-5 parchment-bg">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-display text-lg text-gold flex items-center gap-2">
-                        <Scale size={18} /> Resultado de Revalidación
-                      </h3>
-                      <button
-                        onClick={() => setValidationResult(null)}
-                        className="text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <X size={16} />
-                      </button>
+                      <h3 className="font-display text-base text-gold flex items-center gap-2"><Scale size={16} /> Resultado de Revalidación</h3>
+                      <button onClick={() => setValidationResult(null)} className="text-muted-foreground hover:text-foreground transition-colors"><X size={16} /></button>
                     </div>
-                    <div className="prose-fantasy text-sm">
-                      <ReactMarkdown>{validationResult}</ReactMarkdown>
-                    </div>
+                    <div className="prose-fantasy text-sm"><ReactMarkdown>{validationResult}</ReactMarkdown></div>
                   </motion.div>
                 )}
 
-                {/* Saved indicator */}
                 {savedEncounterId && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground justify-end">
-                    <Check size={12} className="text-green-400" />
-                    <span>Guardado en biblioteca</span>
+                    <Check size={12} className="text-green-400" /><span>Guardado en biblioteca</span>
                   </div>
                 )}
               </motion.div>
             ) : (
-              <div className="ornate-border rounded-lg p-16 parchment-bg text-center">
-                <Swords className="mx-auto mb-4 text-gold" size={48} />
-                <h3 className="font-display text-xl text-foreground mb-2">
-                  Generador de Encuentros
-                </h3>
-                <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                  Configura tu grupo, elige la dificultad y genera un encuentro táctico
-                  con criaturas oficiales, estrategia detallada y validación de equilibrio para D&D 5e.
-                </p>
-              </div>
+              <GenerationStatus status="idle" entityName="Generador de Encuentros" idleIcon={Swords}
+                idleDescription="Configura tu grupo, elige la dificultad y genera un encuentro táctico con criaturas oficiales, estrategia detallada y validación de equilibrio para D&D 5e." />
             )}
           </div>
         </div>

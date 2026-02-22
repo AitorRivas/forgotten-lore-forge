@@ -5,10 +5,11 @@ import { faerunLocations } from "@/data/faerun-locations";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
-import {
-  ArrowLeft, Gem, Loader2, Save, Pencil, Eye, RefreshCw, X,
-  Info, AlertTriangle, Sparkles, Shield, Flame,
-} from "lucide-react";
+import { Gem, Loader2, Sparkles, Shield } from "lucide-react";
+import PageHeader from "@/components/shared/PageHeader";
+import GenerationStatus from "@/components/shared/GenerationStatus";
+import ContentActions from "@/components/shared/ContentActions";
+import FormField from "@/components/shared/FormField";
 
 const TIPOS = [
   "arma", "armadura", "escudo", "objeto maravilloso", "anillo", "varita",
@@ -32,7 +33,6 @@ const RARITY_RISK: Record<string, { risk: string; riskColor: string }> = {
 };
 
 const TONOS = ["benigno", "ambiguo", "oscuro", "corruptor"];
-
 const ROLES = ["combate", "exploración", "social", "híbrido"];
 
 const MagicItemGenerator = () => {
@@ -69,13 +69,10 @@ const MagicItemGenerator = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const promptParts = [
-        customPrompt,
-        `Tipo de objeto: ${tipo}`,
+        customPrompt, `Tipo de objeto: ${tipo}`,
         rareza ? `Rareza: ${rareza}` : "Rareza: elige la más apropiada",
-        `Nivel del grupo: ${nivel}`,
-        `Región: ${region}`,
-        tono ? `Tono: ${tono}` : "",
-        rolObj ? `Rol: ${rolObj}` : "",
+        `Nivel del grupo: ${nivel}`, `Región: ${region}`,
+        tono ? `Tono: ${tono}` : "", rolObj ? `Rol: ${rolObj}` : "",
         esArtefacto ? "Este objeto ES un artefacto. Sigue la estructura oficial del DMG para artefactos." : "",
         escalable ? "El objeto debe tener crecimiento escalable con condiciones de desbloqueo." : "",
       ].filter(Boolean).join("\n");
@@ -123,13 +120,10 @@ const MagicItemGenerator = () => {
           } catch { buf = line + "\n" + buf; break; }
         }
       }
-      toast.success("¡Objeto mágico generado!");
+      toast.success("Contenido generado con éxito");
     } catch (e: any) {
-      if (e.message?.includes("saturados") || e.message?.includes("no disponible") || e.message?.includes("429")) {
-        setServiceUnavailable(true);
-      } else {
-        toast.error(e.message || "Error generando objeto mágico");
-      }
+      setServiceUnavailable(true);
+      console.error("Magic item generation error:", e.message);
     } finally {
       setGenerating(false);
     }
@@ -146,63 +140,46 @@ const MagicItemGenerator = () => {
       const nombre = nameMatch ? nameMatch[1].trim() : "Objeto sin nombre";
 
       const { data, error } = await supabase.from("objetos_magicos" as any).insert({
-        user_id: user.id,
-        nombre,
-        tipo,
-        rareza: rareza || "poco común",
-        es_artefacto: esArtefacto,
-        crecimiento_escalable: escalable,
-        region,
-        nivel_recomendado: nivel,
-        tono: tono || null,
-        rol_objeto: rolObj || null,
-        contenido_completo: text,
-        tags: [tipo, rareza || "poco común", region, tono, rolObj].filter(Boolean),
+        user_id: user.id, nombre, tipo, rareza: rareza || "poco común",
+        es_artefacto: esArtefacto, crecimiento_escalable: escalable, region,
+        nivel_recomendado: nivel, tono: tono || null, rol_objeto: rolObj || null,
+        contenido_completo: text, tags: [tipo, rareza || "poco común", region, tono, rolObj].filter(Boolean),
       } as any).select("id").single();
 
       if (error) throw error;
       setSavedId((data as any)?.id || null);
       if (editMode) { setContent(editedContent); setEditMode(false); }
-      toast.success("¡Objeto guardado en tu biblioteca!");
+      toast.success("Contenido generado con éxito");
     } catch (e: any) {
-      toast.error(e.message || "Error guardando");
+      toast.error("Se ha producido un error. Intenta de nuevo.");
     } finally {
       setSaving(false);
     }
   }, [content, editMode, editedContent, tipo, rareza, region, nivel, tono, rolObj, esArtefacto, escalable]);
 
+  const inputClass = "w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors";
+
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border px-4 py-3 sticky top-0 bg-background/95 backdrop-blur-sm z-40">
-        <div className="max-w-4xl mx-auto flex items-center gap-3">
-          <button onClick={() => navigate("/dashboard")} className="text-muted-foreground hover:text-foreground p-1">
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h1 className="font-display text-lg sm:text-2xl text-gold text-glow flex items-center gap-2">
-              <Gem size={20} /> Generador de Objetos Mágicos
-            </h1>
-            <p className="text-xs text-muted-foreground">Objetos mágicos D&D 5e · Reinos Olvidados</p>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background pb-6">
+      <PageHeader
+        title="Generador de Objetos Mágicos"
+        subtitle="Objetos mágicos D&D 5e · Reinos Olvidados"
+        icon={Gem}
+        backPath="/dashboard"
+        breadcrumbs={[{ label: "Inicio", path: "/dashboard" }, { label: "Objetos Mágicos" }]}
+      />
 
       <main className="max-w-4xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Form */}
           <div className="space-y-4">
             <div className="ornate-border rounded-lg p-4 parchment-bg space-y-3">
-              <div>
-                <label className="text-sm text-muted-foreground block mb-1">Tipo de objeto</label>
-                <select value={tipo} onChange={(e) => setTipo(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors">
+              <FormField label="Tipo de objeto" required>
+                <select value={tipo} onChange={(e) => setTipo(e.target.value)} className={inputClass}>
                   {TIPOS.map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                 </select>
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground block mb-1">Rareza (opcional)</label>
-                <select value={rareza} onChange={(e) => setRareza(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors">
+              </FormField>
+              <FormField label="Rareza" hint="Dejar vacío para automática">
+                <select value={rareza} onChange={(e) => setRareza(e.target.value)} className={inputClass}>
                   <option value="">Automática</option>
                   {RAREZAS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
                 </select>
@@ -216,37 +193,27 @@ const MagicItemGenerator = () => {
                     </span>
                   </div>
                 )}
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground block mb-1">Nivel del grupo</label>
-                <input type="number" min={1} max={20} value={nivel} onChange={(e) => setNivel(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors" />
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground block mb-1">Región de Faerûn</label>
-                <select value={region} onChange={(e) => setRegion(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors">
+              </FormField>
+              <FormField label="Nivel del grupo" required>
+                <input type="number" min={1} max={20} value={nivel} onChange={(e) => setNivel(e.target.value)} className={inputClass} />
+              </FormField>
+              <FormField label="Región de Faerûn" required>
+                <select value={region} onChange={(e) => setRegion(e.target.value)} className={inputClass}>
                   {regionOptions.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground block mb-1">Tono (opcional)</label>
-                <select value={tono} onChange={(e) => setTono(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors">
+              </FormField>
+              <FormField label="Tono">
+                <select value={tono} onChange={(e) => setTono(e.target.value)} className={inputClass}>
                   <option value="">Cualquiera</option>
                   {TONOS.map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                 </select>
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground block mb-1">Rol (opcional)</label>
-                <select value={rolObj} onChange={(e) => setRolObj(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:border-gold transition-colors">
+              </FormField>
+              <FormField label="Rol">
+                <select value={rolObj} onChange={(e) => setRolObj(e.target.value)} className={inputClass}>
                   <option value="">Cualquiera</option>
                   {ROLES.map((r) => <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
                 </select>
-              </div>
-
-              {/* Toggles */}
+              </FormField>
               <div className="flex flex-col gap-2 pt-1">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input type="checkbox" checked={esArtefacto} onChange={(e) => setEsArtefacto(e.target.checked)}
@@ -259,61 +226,32 @@ const MagicItemGenerator = () => {
                   <span className="text-sm text-foreground">¿Crecimiento escalable?</span>
                 </label>
               </div>
-
-              <div>
-                <label className="text-sm text-muted-foreground block mb-1">Detalles extra (opcional)</label>
+              <FormField label="Detalles extra" hint="Contexto adicional para el objeto">
                 <textarea value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)}
                   placeholder="Ej: 'Espada forjada por un herrero enano en Gauntlgrym, maldita por Asmodeus'"
-                  rows={3}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-foreground text-sm focus:outline-none focus:border-gold transition-colors resize-none" />
-              </div>
+                  rows={3} className={`${inputClass} text-sm resize-none`} />
+              </FormField>
             </div>
 
             <button onClick={generate} disabled={generating}
               className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-display py-3.5 rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50 text-base">
               {generating ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-              {generating ? "Generando objeto..." : "Generar Objeto Mágico"}
+              {generating ? "Generando contenido…" : "Generar Objeto Mágico"}
             </button>
           </div>
 
-          {/* Results */}
           <div className="lg:col-span-2">
             {serviceUnavailable && !content ? (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ornate-border rounded-lg p-10 parchment-bg text-center space-y-4">
-                <AlertTriangle className="mx-auto text-amber-400" size={40} />
-                <h3 className="font-display text-lg text-foreground">Servicio temporalmente no disponible</h3>
-                <p className="text-sm text-muted-foreground">El servicio de generación está temporalmente no disponible. Inténtalo en unos minutos.</p>
-                <button onClick={generate} disabled={generating}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground font-display rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50">
-                  {generating ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Reintentar
-                </button>
-              </motion.div>
+              <GenerationStatus status="error" entityName="Objeto Mágico" serviceUnavailable onRetry={generate} retrying={generating} />
             ) : content ? (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ornate-border rounded-lg p-5 parchment-bg space-y-3">
-                {providerType === "alternative" && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 rounded px-3 py-1.5 w-fit">
-                    <Info size={12} /><span>Generado con proveedor alternativo por disponibilidad temporal.</span>
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-2 justify-end">
-                  <button onClick={() => { setEditMode(!editMode); if (!editMode) setEditedContent(content); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs transition-colors border ${editMode ? "bg-gold/20 text-gold border-gold/40" : "border-border text-foreground"}`}>
-                    {editMode ? <><Eye size={13} /> Vista</> : <><Pencil size={13} /> Editar</>}
-                  </button>
-                  <button onClick={generate} disabled={generating}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded text-xs text-foreground hover:border-gold/50 transition-colors disabled:opacity-50">
-                    <RefreshCw size={13} /> Regenerar
-                  </button>
-                  <button onClick={saveItem} disabled={saving}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded text-xs font-display hover:bg-gold-dark transition-colors disabled:opacity-50">
-                    {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-                    {saving ? "Guardando..." : savedId ? "Guardado ✓" : "Guardar"}
-                  </button>
-                  <button onClick={() => { setContent(""); setEditMode(false); setSavedId(null); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors">
-                    <X size={13} /> Descartar
-                  </button>
-                </div>
+                <ContentActions
+                  editMode={editMode}
+                  onToggleEdit={() => { setEditMode(!editMode); if (!editMode) setEditedContent(content); }}
+                  onRegenerate={generate} onSave={saveItem}
+                  onDiscard={() => { setContent(""); setEditMode(false); setSavedId(null); }}
+                  saving={saving} generating={generating} savedId={savedId} providerType={providerType}
+                />
                 {editMode ? (
                   <textarea value={editedContent} onChange={(e) => setEditedContent(e.target.value)}
                     className="w-full min-h-[600px] bg-secondary/50 border border-border rounded p-4 text-sm text-foreground font-mono leading-relaxed focus:outline-none focus:border-gold/50 transition-colors resize-y" />
@@ -322,13 +260,8 @@ const MagicItemGenerator = () => {
                 )}
               </motion.div>
             ) : (
-              <div className="ornate-border rounded-lg p-12 parchment-bg text-center">
-                <Gem className="mx-auto mb-4 text-gold" size={48} />
-                <h3 className="font-display text-xl text-foreground mb-2">Generador de Objetos Mágicos</h3>
-                <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                  Genera objetos mágicos completos con propiedades mecánicas, lore, rumores, ganchos narrativos y notas para el DM. Soporta artefactos con estructura oficial del DMG.
-                </p>
-              </div>
+              <GenerationStatus status="idle" entityName="Generador de Objetos Mágicos" idleIcon={Gem}
+                idleDescription="Genera objetos mágicos completos con propiedades mecánicas, lore, rumores, ganchos narrativos y notas para el DM." />
             )}
           </div>
         </div>
