@@ -4,11 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft, ChevronRight, ChevronDown, Swords, Target, Plus,
+  ChevronRight, ChevronDown, Swords, Target, Plus,
   Link2, Pencil, Save, Loader2, Scroll, Check, Archive, Trash2, Theater,
   MapPin, BookOpen, Shield, AlertTriangle, Trophy, Eye, Gem, RefreshCw,
 } from "lucide-react";
 import CreateMissionDialog from "@/components/CreateMissionDialog";
+import PageHeader from "@/components/shared/PageHeader";
+import CreateButton from "@/components/shared/CreateButton";
 
 interface Mision {
   id: string;
@@ -253,37 +255,22 @@ const MissionDetail = () => {
   const missionMode = mision.metadata?.mode;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border px-4 py-3 sticky top-0 bg-background/95 backdrop-blur-sm z-40">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1 overflow-x-auto">
-            <button onClick={() => navigate("/dashboard")} className="hover:text-gold shrink-0">Inicio</button>
-            {breadcrumb.map(crumb => (
-              <span key={crumb.id} className="flex items-center gap-1.5 shrink-0">
-                <ChevronRight size={12} />
-                <button onClick={() => navigate(`/mission/${crumb.id}`)} className="hover:text-gold truncate max-w-[120px]">
-                  {crumb.titulo || "Sin título"}
-                </button>
-              </span>
-            ))}
-            <ChevronRight size={12} className="shrink-0" />
-            <span className="text-foreground truncate">{displayTitle}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate(mision.mission_parent_id ? `/mission/${mision.mission_parent_id}` : "/dashboard")}
-              className="text-muted-foreground hover:text-foreground transition-colors p-1">
-              <ArrowLeft size={20} />
-            </button>
-            <h1 className="font-display text-lg sm:text-xl text-gold text-glow truncate flex-1">{displayTitle}</h1>
-            {missionMode && (
-              <span className={`text-[10px] px-2 py-0.5 rounded shrink-0 ${missionMode === "extended" ? "bg-amber-400/20 text-amber-400" : "bg-secondary text-muted-foreground"}`}>
-                {missionMode === "extended" ? "Extendida" : "Normal"}
-              </span>
-            )}
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background pb-20">
+      <PageHeader
+        title={displayTitle}
+        icon={Scroll}
+        backPath={mision.mission_parent_id ? `/mission/${mision.mission_parent_id}` : "/dashboard"}
+        breadcrumbs={[
+          { label: "Inicio", path: "/dashboard" },
+          ...breadcrumb.map(c => ({ label: c.titulo || "Sin título", path: `/mission/${c.id}` })),
+          { label: displayTitle },
+        ]}
+        rightContent={missionMode ? (
+          <span className={`text-[10px] px-2 py-0.5 rounded shrink-0 ${missionMode === "extended" ? "bg-amber-400/20 text-amber-400" : "bg-secondary text-muted-foreground"}`}>
+            {missionMode === "extended" ? "Extendida" : "Normal"}
+          </span>
+        ) : undefined}
+      />
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-3">
         {/* INFO */}

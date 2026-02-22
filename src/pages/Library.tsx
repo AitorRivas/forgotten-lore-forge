@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft, BookOpen, Search, Scroll, Theater, Swords, Users, Gem,
-  ChevronDown, ChevronRight, Filter, Trash2,
+  BookOpen, Search, Scroll, Theater, Swords, Users, Gem,
+  ChevronDown, ChevronRight, Trash2,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import PageHeader from "@/components/shared/PageHeader";
 
 type ContentType = "misiones" | "escenas" | "encounters" | "npcs" | "objetos_magicos";
 
@@ -51,8 +52,7 @@ const Library = () => {
         const { data } = await supabase.from("misiones").select("*").order("updated_at", { ascending: false });
         mapped = (data || []).map((m: any) => ({
           id: m.id, type: "misiones" as const, title: m.titulo, subtitle: m.descripcion,
-          content: m.contenido, tags: m.tags || [], level: m.nivel_recomendado,
-          location: undefined, created_at: m.created_at,
+          content: m.contenido, tags: m.tags || [], level: m.nivel_recomendado, created_at: m.created_at,
         }));
       } else if (activeTab === "escenas") {
         const { data } = await supabase.from("escenas" as any).select("*").order("created_at", { ascending: false });
@@ -67,8 +67,7 @@ const Library = () => {
           id: e.id, type: "encounters" as const,
           title: e.texto_completo_editable?.split("\n")[0]?.replace(/^#+\s*/, "").slice(0, 80) || "Encuentro",
           subtitle: `Dificultad ${e.dificultad} · Nivel ${e.nivel_grupo}`,
-          content: e.texto_completo_editable, tags: e.tags || [], level: String(e.nivel_grupo),
-          location: undefined, created_at: e.created_at,
+          content: e.texto_completo_editable, tags: e.tags || [], level: String(e.nivel_grupo), created_at: e.created_at,
         }));
       } else if (activeTab === "npcs") {
         const { data } = await supabase.from("npcs" as any).select("*").order("created_at", { ascending: false });
@@ -88,7 +87,7 @@ const Library = () => {
 
       setItems(mapped);
     } catch {
-      toast.error("Error cargando biblioteca");
+      toast.error("Se ha producido un error. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -97,7 +96,7 @@ const Library = () => {
   const deleteItem = async (item: LibraryItem) => {
     if (!confirm("¿Eliminar este elemento?")) return;
     const { error } = await supabase.from(item.type as any).delete().eq("id", item.id);
-    if (error) { toast.error("Error eliminando"); return; }
+    if (error) { toast.error("Se ha producido un error. Intenta de nuevo."); return; }
     toast.success("Eliminado");
     setItems((prev) => prev.filter((i) => i.id !== item.id));
     if (expandedId === item.id) setExpandedId(null);
@@ -106,21 +105,17 @@ const Library = () => {
   const filtered = items.filter((i) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
-    return i.title.toLowerCase().includes(q) || i.tags.some((t) => t.toLowerCase().includes(q)) || i.location?.toLowerCase().includes(q);
+    return i.title?.toLowerCase().includes(q) || i.tags.some((t) => t.toLowerCase().includes(q)) || i.location?.toLowerCase().includes(q);
   });
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border px-4 py-3 sticky top-0 bg-background/95 backdrop-blur-sm z-40">
-        <div className="max-w-4xl mx-auto flex items-center gap-3">
-          <button onClick={() => navigate("/dashboard")} className="text-muted-foreground hover:text-foreground p-1">
-            <ArrowLeft size={20} />
-          </button>
-          <h1 className="font-display text-lg sm:text-2xl text-gold text-glow flex items-center gap-2">
-            <BookOpen size={20} /> Biblioteca
-          </h1>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background pb-6">
+      <PageHeader
+        title="Biblioteca"
+        icon={BookOpen}
+        backPath="/dashboard"
+        breadcrumbs={[{ label: "Inicio", path: "/dashboard" }, { label: "Biblioteca" }]}
+      />
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-4">
         {/* Tabs */}
@@ -150,14 +145,13 @@ const Library = () => {
           <div className="ornate-border rounded-lg p-12 parchment-bg text-center">
             <BookOpen className="mx-auto mb-3 text-gold" size={40} />
             <h3 className="font-display text-lg text-foreground mb-1">Sin resultados</h3>
-            <p className="text-muted-foreground text-sm">Genera contenido para llenarte la biblioteca</p>
+            <p className="text-muted-foreground text-sm">Genera contenido para llenar tu biblioteca</p>
           </div>
         ) : (
           <div className="space-y-2">
             {filtered.map((item) => (
               <div key={item.id} className="ornate-border rounded-lg parchment-bg overflow-hidden">
-                <button onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
-                  className="w-full text-left p-4">
+                <button onClick={() => setExpandedId(expandedId === item.id ? null : item.id)} className="w-full text-left p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <span className="font-display text-sm text-gold block truncate">{item.title}</span>
@@ -170,13 +164,10 @@ const Library = () => {
                   </div>
                   {item.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {item.tags.slice(0, 4).map((t) => (
-                        <span key={t} className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded">{t}</span>
-                      ))}
+                      {item.tags.slice(0, 4).map((t) => <span key={t} className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded">{t}</span>)}
                     </div>
                   )}
                 </button>
-
                 <AnimatePresence>
                   {expandedId === item.id && (
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
