@@ -52,6 +52,7 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
   const [nivelRecomendado, setNivelRecomendado] = useState("1-5");
   const [tono, setTono] = useState("");
   const [tags, setTags] = useState("");
+  const [indicacionesAdicionales, setIndicacionesAdicionales] = useState("");
   const [selectedParentId, setSelectedParentId] = useState(parentId || "");
   const [mode, setMode] = useState<"normal" | "extended">("normal");
 
@@ -117,6 +118,8 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
             tono: tono || "épico",
             parentMissionId: selectedParentId || null,
             mode,
+            titulo: titulo.trim() || undefined,
+            indicacionesAdicionales: indicacionesAdicionales.trim() || undefined,
           }),
         }
       );
@@ -204,7 +207,7 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
   };
 
   const resetForm = () => {
-    setTitulo(""); setTipo(""); setNivelRecomendado("1-5"); setTono(""); setTags("");
+    setTitulo(""); setTipo(""); setNivelRecomendado("1-5"); setTono(""); setTags(""); setIndicacionesAdicionales("");
     setSelectedParentId(""); setSelectedRegion(""); setSelectedSubregion(""); setSelectedLocation("");
     setGeneratedMission(null); setMode("normal"); setGenProgress(0);
   };
@@ -250,12 +253,13 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
           {/* Título */}
           <div>
             <label className="block text-sm font-display text-gold-light mb-1.5">
-              Título <span className="text-muted-foreground text-xs">(opcional — se autogenera)</span>
+              Título <span className="text-muted-foreground text-xs">(opcional — define el tema central)</span>
             </label>
             <input type="text" value={titulo} onChange={(e) => setTitulo(e.target.value)}
-              placeholder="Se generará automáticamente..."
+              placeholder="Ej: 'El centollo colorao', 'La traición del cónsul'…"
               className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-foreground text-base focus:outline-none focus:border-gold transition-colors"
             />
+            <p className="text-[10px] text-muted-foreground/60 mt-1">Si se define, toda la misión girará alrededor de este concepto</p>
           </div>
 
           {/* Tipo */}
@@ -338,6 +342,19 @@ const CreateMissionDialog = ({ open, onClose, onCreated, parentId, parentTitle }
               </select>
             </div>
           )}
+
+          {/* Indicaciones adicionales */}
+          <div>
+            <label className="block text-sm font-display text-gold-light mb-1.5">
+              Indicaciones adicionales <span className="text-muted-foreground text-xs">(opcional)</span>
+            </label>
+            <textarea value={indicacionesAdicionales} onChange={(e) => setIndicacionesAdicionales(e.target.value)}
+              placeholder="Ej: 'Debe incluir una traición inesperada', 'Ambientación pirata', 'Que el villano sea un aliado del grupo'…"
+              rows={3}
+              className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-foreground text-sm focus:outline-none focus:border-gold transition-colors resize-none"
+            />
+            <p className="text-[10px] text-muted-foreground/60 mt-1">Restricciones creativas que influirán en tono, conflictos y ambientación</p>
+          </div>
 
           {/* Generate button + progress */}
           <div className="space-y-2">

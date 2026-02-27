@@ -14,6 +14,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import PageHeader from "@/components/shared/PageHeader";
 import GenerationStatus from "@/components/shared/GenerationStatus";
+import ContentActions from "@/components/shared/ContentActions";
 import FormField from "@/components/shared/FormField";
 
 type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
@@ -286,7 +287,7 @@ const EncounterGenerator = () => {
   }, [encounter, editMode, editedContent, partyMembers, avgLevel, difficultyLevel]);
 
   const markdownContent = encounter || "";
-  const inputClass = "w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-gold transition-colors";
+  const inputClass = "w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-gold transition-colors";
 
   return (
     <div className="min-h-screen bg-background pb-6">
@@ -397,36 +398,24 @@ const EncounterGenerator = () => {
               <GenerationStatus status="error" entityName="Encuentro" serviceUnavailable onRetry={generateEncounter} retrying={generating} />
             ) : encounter ? (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                {providerType === "alternative" && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 rounded px-3 py-1.5 w-fit">
-                    <Info size={12} /><span>Generado con proveedor alternativo</span>
-                  </div>
-                )}
-                {/* Action buttons */}
-                <div className="flex flex-wrap gap-2 justify-end">
-                  <button onClick={generateEncounter} disabled={generating}
-                    className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-xs text-foreground hover:border-gold/40 transition-colors disabled:opacity-50">
-                    {generating ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Regenerar
-                  </button>
-                  <button onClick={() => { setEditMode(!editMode); if (!editMode) setEditedContent(markdownContent); }}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs transition-colors border ${editMode ? "bg-gold/20 text-gold border-gold/40" : "border-border text-foreground hover:border-gold/40"}`}>
-                    {editMode ? <><Eye size={13} /> Vista</> : <><Pencil size={13} /> Editar</>}
-                  </button>
-                  <button onClick={revalidateBalance} disabled={revalidating || generating}
-                    className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-xs text-foreground hover:border-gold/40 transition-colors disabled:opacity-50">
-                    {revalidating ? <Loader2 size={13} className="animate-spin" /> : <Scale size={13} />}
-                    {revalidating ? "Revalidando…" : "Revalidar"}
-                  </button>
-                  <button onClick={saveEncounter} disabled={saving || generating}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-display hover:bg-gold-dark transition-colors disabled:opacity-50">
-                    {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-                    {saving ? "Guardando…" : savedEncounterId ? "Guardado ✓" : "Guardar"}
-                  </button>
-                  <button onClick={() => { setEncounter(null); setEditMode(false); setSavedEncounterId(null); setValidationResult(null); }}
-                    className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground transition-colors">
-                    <X size={13} /> Descartar
-                  </button>
-                </div>
+                <ContentActions
+                  editMode={editMode}
+                  onToggleEdit={() => { setEditMode(!editMode); if (!editMode) setEditedContent(markdownContent); }}
+                  onRegenerate={generateEncounter}
+                  onSave={saveEncounter}
+                  onDiscard={() => { setEncounter(null); setEditMode(false); setSavedEncounterId(null); setValidationResult(null); }}
+                  saving={saving}
+                  generating={generating}
+                  savedId={savedEncounterId}
+                  providerType={providerType}
+                  extraActions={
+                    <button onClick={revalidateBalance} disabled={revalidating || generating}
+                      className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-xs text-foreground hover:border-gold/40 transition-colors disabled:opacity-50">
+                      {revalidating ? <Loader2 size={13} className="animate-spin" /> : <Scale size={13} />}
+                      {revalidating ? "Revalidando…" : "Revalidar"}
+                    </button>
+                  }
+                />
 
                 {editMode ? (
                   <div className="ornate-border rounded-lg p-5 parchment-bg">

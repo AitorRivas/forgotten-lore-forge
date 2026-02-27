@@ -61,10 +61,10 @@ const NpcGenerator = () => {
           },
           body: JSON.stringify({
             importancia,
-            customPrompt: [
-              customPrompt, `Nivel aproximado: ${nivel}`,
-              rol ? `Rol: ${rol}` : "", `Región: ${region}`,
-            ].filter(Boolean).join("\n"),
+            nivel,
+            rol: rol || undefined,
+            region,
+            customPrompt: customPrompt || undefined,
           }),
         }
       );

@@ -232,15 +232,22 @@ serve(async (req) => {
   }
 
   try {
-    const { customPrompt, importancia } = await req.json();
+    const { customPrompt, importancia, nivel, rol, region } = await req.json();
     
     const category = importancia || "relevante";
     const systemPrompt = NPC_PROMPTS[category] || NPC_PROMPTS["relevante"];
 
     let userPrompt = `Genera un PNJ ${category === "menor" ? "breve" : category === "antagonista principal" ? "antagonista principal" : "completo"} para D&D 5e en Forgotten Realms.`;
+    
+    const constraints: string[] = [];
+    if (nivel) constraints.push(`NIVEL APROXIMADO: ${nivel}. Adapta estadísticas, CR y equipo a este nivel.`);
+    if (rol) constraints.push(`ROL: ${rol}. El PNJ DEBE cumplir esta función narrativa. Sus motivaciones, habilidades y comportamiento deben reflejar este rol.`);
+    if (region) constraints.push(`REGIÓN: ${region}. Usa nombres, cultura, religión, facciones y lore específicos de esta zona de Faerûn.`);
+    if (constraints.length) userPrompt += "\n\n" + constraints.join("\n");
     if (customPrompt) {
-      userPrompt += `\n\nINSTRUCCIONES DEL USUARIO:\n${customPrompt}`;
+      userPrompt += `\n\nINDICACIONES CREATIVAS DEL USUARIO (integrar obligatoriamente):\n${customPrompt}`;
     }
+    userPrompt += "\n\nVerifica que todos los parámetros proporcionados han sido utilizados de forma significativa.";
 
     const aiResult = await generateWithFallback(systemPrompt, userPrompt, {
       contentType: "npc",

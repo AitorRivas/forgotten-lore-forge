@@ -68,15 +68,6 @@ const MagicItemGenerator = () => {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const promptParts = [
-        customPrompt, `Tipo de objeto: ${tipo}`,
-        rareza ? `Rareza: ${rareza}` : "Rareza: elige la más apropiada",
-        `Nivel del grupo: ${nivel}`, `Región: ${region}`,
-        tono ? `Tono: ${tono}` : "", rolObj ? `Rol: ${rolObj}` : "",
-        esArtefacto ? "Este objeto ES un artefacto. Sigue la estructura oficial del DMG para artefactos." : "",
-        escalable ? "El objeto debe tener crecimiento escalable con condiciones de desbloqueo." : "",
-      ].filter(Boolean).join("\n");
-
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-magic-item`,
         {
@@ -85,7 +76,17 @@ const MagicItemGenerator = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ customPrompt: promptParts }),
+          body: JSON.stringify({
+            tipo,
+            rareza: rareza || undefined,
+            nivel,
+            region,
+            tono: tono || undefined,
+            rolObjeto: rolObj || undefined,
+            esArtefacto,
+            escalable,
+            customPrompt: customPrompt || undefined,
+          }),
         }
       );
 

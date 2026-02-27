@@ -70,12 +70,13 @@ serve(async (req) => {
 
     let userPrompt = "Genera una escena cerrada, breve y útil para improvisación inmediata en D&D 5e.";
     const details: string[] = [];
-    if (nivelGrupo) details.push(`Nivel del grupo: ${nivelGrupo}`);
-    if (localizacion) details.push(`Localización: ${localizacion}`);
-    if (tipo) details.push(`Tipo de escena: ${tipo}`);
-    if (tono) details.push(`Tono: ${tono}`);
-    if (customPrompt) details.push(`Instrucciones del DM: ${customPrompt}`);
+    if (nivelGrupo) details.push(`NIVEL DEL GRUPO: ${nivelGrupo}. Adapta la dificultad, los CDs y las criaturas a este rango de nivel.`);
+    if (localizacion) details.push(`LOCALIZACIÓN: ${localizacion}. Usa lore, fauna, clima y cultura específicos de esta región de Faerûn.`);
+    if (tipo) details.push(`TIPO DE ESCENA: ${tipo}. La escena DEBE ser de este tipo, no otro.`);
+    if (tono) details.push(`TONO NARRATIVO: ${tono}. Toda la narrativa, diálogos y descripción deben reflejar este tono.`);
+    if (customPrompt) details.push(`INDICACIONES CREATIVAS DEL DM (integrar obligatoriamente): ${customPrompt}`);
     if (details.length) userPrompt += "\n\n" + details.join("\n");
+    userPrompt += "\n\nVerifica que todos los parámetros proporcionados han sido utilizados de forma significativa.";
 
     const aiResult = await generateWithFallback(SYSTEM_PROMPT, userPrompt, {
       contentType: "scene",
