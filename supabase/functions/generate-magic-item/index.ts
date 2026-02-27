@@ -97,12 +97,24 @@ serve(async (req) => {
   }
 
   try {
-    const { customPrompt } = await req.json();
+    const { customPrompt, tipo, rareza, nivel, region, tono, rolObjeto, esArtefacto, escalable } = await req.json();
 
     let userPrompt = "Genera un objeto mágico único, equilibrado y narrativamente rico para D&D 5e en Forgotten Realms.";
+    
+    const constraints: string[] = [];
+    if (tipo) constraints.push(`TIPO DE OBJETO: ${tipo}. El objeto DEBE ser de este tipo.`);
+    if (rareza) constraints.push(`RAREZA: ${rareza}. Ajusta poder, cargas y requisitos a esta rareza exacta.`);
+    if (nivel) constraints.push(`NIVEL DEL GRUPO: ${nivel}. Equilibra el objeto para este rango de nivel.`);
+    if (region) constraints.push(`REGIÓN DE ORIGEN: ${region}. La historia, creador y lore deben pertenecer a esta zona de Faerûn.`);
+    if (tono) constraints.push(`TONO: ${tono}. El objeto debe reflejar esta atmósfera en su descripción y efectos.`);
+    if (rolObjeto) constraints.push(`ROL DEL OBJETO: ${rolObjeto}. Las mecánicas deben orientarse a este uso.`);
+    if (esArtefacto) constraints.push("ARTEFACTO: Sí. Sigue la estructura COMPLETA del DMG para artefactos (propiedades beneficiosas/perjudiciales, condición de destrucción).");
+    if (escalable) constraints.push("CRECIMIENTO ESCALABLE: Sí. El objeto debe tener condiciones de desbloqueo y nuevos poderes progresivos.");
+    if (constraints.length) userPrompt += "\n\n" + constraints.join("\n");
     if (customPrompt) {
-      userPrompt += `\n\nINSTRUCCIONES DEL USUARIO:\n${customPrompt}`;
+      userPrompt += `\n\nINDICACIONES CREATIVAS DEL USUARIO (integrar obligatoriamente):\n${customPrompt}`;
     }
+    userPrompt += "\n\nVerifica que todos los parámetros proporcionados han sido utilizados de forma significativa.";
 
     const aiResult = await generateWithFallback(SYSTEM_PROMPT, userPrompt, {
       contentType: "magic-item",

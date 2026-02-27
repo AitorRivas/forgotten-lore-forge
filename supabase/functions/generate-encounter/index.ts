@@ -330,8 +330,9 @@ CONTEXTO REGIONAL: ${regionLore}`;
       baseUserPrompt += `\n\nAJUSTES POR COMPOSICIÓN DEL GRUPO:\n${partyWeaknesses.join("\n")}`;
     }
 
-    if (encounterTheme) baseUserPrompt += `\nTEMA DEL ENCUENTRO: ${encounterTheme}`;
-    if (specificRequest) baseUserPrompt += `\nPETICIÓN ESPECÍFICA: ${specificRequest}`;
+    if (encounterTheme) baseUserPrompt += `\nTEMA DEL ENCUENTRO: ${encounterTheme}. El encuentro DEBE girar alrededor de este tema.`;
+    if (specificRequest) baseUserPrompt += `\nINDICACIONES CREATIVAS DEL USUARIO (integrar obligatoriamente): ${specificRequest}`;
+    baseUserPrompt += `\n\nVerifica que todos los parámetros proporcionados han sido utilizados de forma significativa.`;
     if (campaignContext) {
       baseUserPrompt += `\n\nCONTEXTO DE CAMPAÑA:
 - Campaña: ${campaignContext.name}

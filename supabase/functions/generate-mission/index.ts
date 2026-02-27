@@ -218,7 +218,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { userId, ubicacion, tipo, nivelGrupo, tono, customPrompt, parentMissionId, mode, regenerateField } = await req.json();
+    const { userId, ubicacion, tipo, nivelGrupo, tono, customPrompt, parentMissionId, mode, regenerateField, titulo, indicacionesAdicionales } = await req.json();
 
     // PARTIAL REGENERATION
     if (regenerateField) {
@@ -293,15 +293,35 @@ Frases completas. Nunca cortes palabras.`;
       }
     }
 
-    let userPrompt = `Genera una misión ${isExtended ? "EXTENDIDA con máxima profundidad narrativa" : ""} con estos parámetros:
+    let userPrompt = "";
+
+    // TÍTULO como concepto central obligatorio (PRIORIDAD MÁXIMA)
+    if (titulo && titulo.trim()) {
+      userPrompt += `CONCEPTO CENTRAL OBLIGATORIO: "${titulo.trim()}"
+Construye TODA la misión alrededor de este concepto. El título debe ser el tema dominante que define la trama, los personajes, los conflictos y la ambientación. Cada elemento de la misión debe relacionarse directa o indirectamente con este concepto. NO lo trates como decorativo: es la restricción narrativa principal.\n\n`;
+    }
+
+    userPrompt += `Genera una misión ${isExtended ? "EXTENDIDA con máxima profundidad narrativa" : ""} con estos parámetros:
 TIPO: ${tipo}
 UBICACIÓN: ${ubicacion}
 NIVEL: ${nivelGrupo || "1-5"}
 TONO: ${tono || "épico"}`;
 
-    if (customPrompt) userPrompt += `\nINSTRUCCIONES ADICIONALES: ${customPrompt}`;
+    // Indicaciones adicionales como restricción creativa fuerte
+    if (indicacionesAdicionales && indicacionesAdicionales.trim()) {
+      userPrompt += `\n\nINDICACIONES CREATIVAS DEL USUARIO (integrar obligatoriamente en tono, ambientación, conflictos o temática):
+${indicacionesAdicionales.trim()}`;
+    }
+
+    if (customPrompt) userPrompt += `\nCONTEXTO ADICIONAL: ${customPrompt}`;
     if (contextBlock) userPrompt += `\n${contextBlock}`;
-    userPrompt += "\n\nResponde SOLO con el JSON estructurado. Sin markdown ni texto adicional.";
+
+    // Si hay título, reforzar al final
+    if (titulo && titulo.trim()) {
+      userPrompt += `\n\nRECORDATORIO FINAL: El nombre de la misión debe reflejar el concepto "${titulo.trim()}". Todos los elementos narrativos deben girar alrededor de este concepto.`;
+    }
+
+    userPrompt += "\n\nVerifica que todos los parámetros proporcionados han sido utilizados de forma significativa.\nResponde SOLO con el JSON estructurado. Sin markdown ni texto adicional.";
 
     const SYSTEM_PROMPT = buildSystemPrompt(limits, isExtended);
 
