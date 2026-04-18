@@ -45,12 +45,15 @@ const SceneGenerator = () => {
     setSavedId(null);
     setEditMode(false);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-scene`,
         {
           method: "POST",
+          signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
