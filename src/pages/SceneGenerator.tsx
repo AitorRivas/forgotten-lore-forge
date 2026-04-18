@@ -99,8 +99,9 @@ const SceneGenerator = () => {
       toast.success("Contenido generado con éxito");
     } catch (e: any) {
       setServiceUnavailable(true);
-      console.error("Scene generation error:", e.message);
+      console.error("Scene generation error:", e?.message || e);
     } finally {
+      clearTimeout(timeoutId);
       setGenerating(false);
     }
   }, [nivelGrupo, localizacion, tipo, tono, customPrompt]);
