@@ -7,7 +7,7 @@ const ACTIONS = [
   { label: "Crear Misión", icon: Scroll, path: "/dashboard", desc: "Narrativa estructurada con submisiones y encuentros" },
   { label: "Crear Escena", icon: Theater, path: "/scene-generator", desc: "Eventos cerrados para improvisación inmediata" },
   { label: "Generar Encuentro", icon: Swords, path: "/encounter-generator", desc: "Encuentros balanceados con estrategia de DM" },
-  { label: "Generar PNJ", icon: Users, path: "/npc-generator", desc: "Personajes completos con ficha 5e" },
+  { label: "Generar PNJ", icon: Users, path: "/npc-generator", desc: "Personajes completos con ficha 5.5e" },
   { label: "Objeto Mágico", icon: Gem, path: "/magic-item-generator", desc: "Objetos mágicos y artefactos con lore" },
   { label: "Biblioteca", icon: BookOpen, path: "/library", desc: "Consulta y edita todo tu contenido guardado" },
 ];
@@ -35,7 +35,7 @@ const Index = () => {
             Crónicas de Faerûn
           </h1>
           <p className="text-lg md:text-xl text-foreground/80 mb-2 font-body">
-            Generador Integral para D&D 5e
+            Generador Integral para D&D 5.5e
           </p>
           <p className="text-muted-foreground text-sm md:text-base mb-8 max-w-lg mx-auto">
             Misiones estructuradas · Escenas improvisadas · Encuentros balanceados · PNJ completos — todo basado en Reinos Olvidados
@@ -90,7 +90,7 @@ const Index = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             { icon: Sparkles, title: "IA Especializada", desc: "Genera contenido coherente con lore oficial de Forgotten Realms" },
-            { icon: Shield, title: "5e Real", desc: "Fichas con estadísticas, CR, acciones y estrategia de combate" },
+            { icon: Shield, title: "5.5e Real", desc: "Fichas con estadísticas, CR, acciones y estrategia de combate" },
             { icon: Scroll, title: "Todo Guardado", desc: "Biblioteca personal editable, filtrable y optimizada para móvil" },
           ].map((f, i) => (
             <motion.div
@@ -113,7 +113,7 @@ const Index = () => {
       <footer className="border-t border-border px-6 py-6 text-center space-y-1">
         <div className="flex items-center justify-center gap-2 text-muted-foreground">
           <Swords size={14} className="text-gold" />
-          <span className="font-display text-xs">Crónicas de Faerûn · D&D 5e · Reinos Olvidados</span>
+          <span className="font-display text-xs">Crónicas de Faerûn · D&D 5.5e · Reinos Olvidados</span>
         </div>
         <p className="text-muted-foreground/50 text-[10px]">© Creado por diFFFerent</p>
       </footer>

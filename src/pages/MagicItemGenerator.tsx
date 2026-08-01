@@ -164,7 +164,7 @@ const MagicItemGenerator = () => {
     <div className="min-h-screen bg-background pb-6">
       <PageHeader
         title="Generador de Objetos Mágicos"
-        subtitle="Objetos mágicos D&D 5e · Reinos Olvidados"
+        subtitle="Objetos mágicos D&D 5.5e · Reinos Olvidados"
         icon={Gem}
         backPath="/dashboard"
         breadcrumbs={[{ label: "Inicio", path: "/dashboard" }, { label: "Objetos Mágicos" }]}

@@ -293,7 +293,7 @@ const EncounterGenerator = () => {
     <div className="min-h-screen bg-background pb-6">
       <PageHeader
         title="Generador de Encuentros"
-        subtitle="Encuentros híbridos personalizados para D&D 5e"
+        subtitle="Encuentros híbridos personalizados para D&D 5.5e"
         icon={Swords}
         backPath="/dashboard"
         breadcrumbs={[{ label: "Inicio", path: "/dashboard" }, { label: "Encuentros" }]}
@@ -467,7 +467,7 @@ const EncounterGenerator = () => {
               </motion.div>
             ) : (
               <GenerationStatus status="idle" entityName="Generador de Encuentros" idleIcon={Swords}
-                idleDescription="Configura tu grupo, elige la dificultad y genera un encuentro táctico con criaturas oficiales, estrategia detallada y validación de equilibrio para D&D 5e." />
+                idleDescription="Configura tu grupo, elige la dificultad y genera un encuentro táctico con criaturas oficiales, estrategia detallada y validación de equilibrio para D&D 5.5e." />
             )}
           </div>
         </div>
