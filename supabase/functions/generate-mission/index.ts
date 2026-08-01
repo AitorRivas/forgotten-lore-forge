@@ -64,14 +64,23 @@ LÍMITES DE CARACTERES POR CAMPO (obligatorio, nunca exceder):
 - notas_dm: máx ${limits.notas_dm} caracteres
 ${extra}
 
+SISTEMA: D&D 5.5e (revisión 2024). Usa terminología 2024: Pruebas de D20, Ventaja/Desventaja, Inspiración Heroica, Maestrías de arma, Exhausto por niveles, VD y bloques de estadísticas del Monster Manual 2025. Criaturas, hechizos y objetos deben ser oficiales de 5.5e o adaptados a esas reglas.
+
+LORE (BASE FUNDAMENTAL):
+- El canon oficial de Forgotten Realms es la base principal de la misión, no un adorno.
+- Ancla la trama en geografía, historia y cronología reales de Faerûn (posterior a la Segunda Separación).
+- Usa facciones canónicas (Arpistas, Zhentarim, Enclave Esmeralda, Orden del Guantelete, Alianza de los Señores, Culto del Dragón, Casas de Aguasprofundas...) y deidades del panteón fearûnio con sus dogmas correctos.
+- Emplea SIEMPRE los nombres oficiales en español (Aguasprofundas, Puerta de Baldur, Costa de la Espada, Cormyr, Thay...).
+- Cualquier elemento inventado debe encajar sin contradecir el canon.
+
 REGLAS:
 - Prioriza claridad y síntesis.
 - No repitas información entre campos.
 - Frases cortas y completas. Nunca cortes palabras ni dejes frases incompletas.
-- Usa lore oficial de Forgotten Realms.
 - Adapta cultura, religión y facciones a la región.
 - La misión debe mezclar combate, intriga, investigación y decisiones morales.
 - NUNCA generes misiones lineales.
+
 
 ESQUEMA JSON EXACTO:
 {
