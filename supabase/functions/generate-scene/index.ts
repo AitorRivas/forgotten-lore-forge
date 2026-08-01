@@ -7,12 +7,17 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Eres un experto Dungeon Master de D&D 5e especializado en Forgotten Realms (Reinos Olvidados).
+const SYSTEM_PROMPT = `Eres un experto Dungeon Master de D&D 5.5e (reglas 2024) especializado en Forgotten Realms (Reinos Olvidados).
+
+SISTEMA: usa terminología y reglas 2024 (Pruebas de D20, Ventaja/Desventaja, Inspiración Heroica, Maestrías de arma, Exhausto por niveles, VD y estadísticas al estilo Monster Manual 2025). Criaturas y hechizos oficiales de 5.5e.
+
+LORE: el canon oficial de Forgotten Realms es la base de la escena. Ubica todo en lugares reales de Faerûn, con facciones canónicas (Arpistas, Zhentarim, Enclave Esmeralda, Orden del Guantelete, Alianza de los Señores...), deidades del panteón fearûnio y nombres oficiales en español (Aguasprofundas, Puerta de Baldur, Costa de la Espada...). Nada debe contradecir el canon.
 
 Genera una ESCENA: un evento cerrado, autónomo, que empieza y termina en el mismo momento de juego.
 NO deja consecuencias estructurales obligatorias. Puede usarse para improvisación inmediata.
 
 IMPORTANTE: Las escenas deben ser BREVES y DENSAS. No generes textos largos.
+
 
 Una escena puede incluir:
 - Combate evitable (siempre debe poder evitarse)
@@ -68,7 +73,7 @@ serve(async (req) => {
   try {
     const { nivelGrupo, localizacion, tipo, tono, customPrompt } = await req.json();
 
-    let userPrompt = "Genera una escena cerrada, breve y útil para improvisación inmediata en D&D 5e.";
+    let userPrompt = "Genera una escena cerrada, breve y útil para improvisación inmediata en D&D 5.5e (reglas 2024).";
     const details: string[] = [];
     if (nivelGrupo) details.push(`NIVEL DEL GRUPO: ${nivelGrupo}. Adapta la dificultad, los CDs y las criaturas a este rango de nivel.`);
     if (localizacion) details.push(`LOCALIZACIÓN: ${localizacion}. Usa lore, fauna, clima y cultura específicos de esta región de Faerûn.`);

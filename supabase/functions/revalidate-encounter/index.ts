@@ -20,7 +20,7 @@ serve(async (req) => {
 
     const partyAnalysis = (partyMembers || []).map((m: any) => `- ${m.className} nivel ${m.level}`).join("\n");
 
-    const systemPrompt = `Eres un auditor de equilibrio de encuentros para D&D 5e. Tu trabajo es:
+    const systemPrompt = `Eres un auditor de equilibrio de encuentros para D&D 5.5e (reglas 2024). Tu trabajo es:
 
 1. Analizar el encuentro editado por el DM.
 2. Verificar que los CR de las criaturas sean correctos según los manuales oficiales.

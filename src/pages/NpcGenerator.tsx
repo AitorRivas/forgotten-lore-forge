@@ -141,7 +141,7 @@ const NpcGenerator = () => {
     <div className="min-h-screen bg-background pb-6">
       <PageHeader
         title="Generador de PNJ"
-        subtitle="Personajes completos con ficha D&D 5e"
+        subtitle="Personajes completos con ficha D&D 5.5e"
         icon={Users}
         backPath="/dashboard"
         breadcrumbs={[{ label: "Inicio", path: "/dashboard" }, { label: "PNJ" }]}
@@ -217,7 +217,7 @@ const NpcGenerator = () => {
               </motion.div>
             ) : (
               <GenerationStatus status="idle" entityName="Generador de PNJ" idleIcon={Users}
-                idleDescription="Genera personajes no jugadores completos con ficha de combate 5e, personalidad, secretos, motivaciones y ganchos narrativos." />
+                idleDescription="Genera personajes no jugadores completos con ficha de combate 5.5e, personalidad, secretos, motivaciones y ganchos narrativos." />
             )}
           </div>
         </div>

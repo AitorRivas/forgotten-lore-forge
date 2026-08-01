@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Eres un experto creador de personajes jugadores (PCs) para Dungeons & Dragons 5e ambientado en Forgotten Realms.
+const SYSTEM_PROMPT = `Eres un experto creador de personajes jugadores (PCs) para Dungeons & Dragons 5.5e (reglas 2024) ambientado en Forgotten Realms.
 
 Genera personajes profundos, jugables, con historia coherente con el lore oficial.
 
@@ -16,7 +16,7 @@ FORMATO DE RESPUESTA (usa markdown):
 ## 🎭 [Nombre del Personaje]
 
 ### 📋 Ficha Básica
-- **Raza:** [raza oficial de D&D 5e]
+- **Raza:** [raza oficial de D&D 5.5e (reglas 2024)]
 - **Clase:** [clase y subclase sugerida]
 - **Trasfondo:** [trasfondo oficial o personalizado]
 - **Alineamiento:** [alineamiento]
@@ -58,7 +58,7 @@ serve(async (req) => {
 
   try {
     const { customPrompt } = await req.json();
-    let userPrompt = "Genera un personaje jugador único y memorable para una campaña de D&D 5e en Forgotten Realms.";
+    let userPrompt = "Genera un personaje jugador único y memorable para una campaña de D&D 5.5e (reglas 2024) en Forgotten Realms.";
     if (customPrompt) userPrompt += `\n\nINSTRUCCIONES DEL USUARIO:\n${customPrompt}`;
 
     const aiResult = await callAIWithFallback(

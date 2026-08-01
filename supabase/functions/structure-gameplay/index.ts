@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Eres un diseñador de encuentros y estructurador de gameplay para D&D 5e en Forgotten Realms.
+const SYSTEM_PROMPT = `Eres un diseñador de encuentros y estructurador de gameplay para D&D 5.5e (reglas 2024) en Forgotten Realms.
 
 Tu trabajo es transformar contenido narrativo en FORMATO MECÁNICAMENTE JUGABLE. No generas lore nuevo — reestructuras lo existente en bloques ejecutables en mesa.
 
@@ -48,7 +48,7 @@ serve(async (req) => {
     const { customPrompt } = await req.json();
     const prompt = customPrompt
       ? `Transforma el siguiente contenido narrativo en formato de gameplay estructurado:\n\n${customPrompt}`
-      : `Crea una estructura de gameplay completa y original para una sesión de D&D 5e nivel 5-7 en Forgotten Realms.`;
+      : `Crea una estructura de gameplay completa y original para una sesión de D&D 5.5e (reglas 2024) nivel 5-7 en Forgotten Realms.`;
 
     const aiResult = await callAIWithFallback(
       [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: prompt }],

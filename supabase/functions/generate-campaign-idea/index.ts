@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Eres un diseñador profesional de campañas para Dungeons & Dragons 5e en Forgotten Realms.
+const SYSTEM_PROMPT = `Eres un diseñador profesional de campañas para Dungeons & Dragons 5.5e (reglas 2024) en Forgotten Realms.
 
 Genera ideas de campaña completas, épicas y jugables con estructura narrativa sólida.
 
@@ -66,7 +66,7 @@ serve(async (req) => {
 
   try {
     const { customPrompt } = await req.json();
-    let userPrompt = "Genera una idea de campaña épica, original y completa para D&D 5e en Forgotten Realms.";
+    let userPrompt = "Genera una idea de campaña épica, original y completa para D&D 5.5e (reglas 2024) en Forgotten Realms.";
     if (customPrompt) userPrompt += `\n\nINSTRUCCIONES DEL USUARIO:\n${customPrompt}`;
 
     const aiResult = await callAIWithFallback(

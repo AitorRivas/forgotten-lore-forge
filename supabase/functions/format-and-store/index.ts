@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.3";
 import { callAIWithFallback } from "../_shared/ai-provider.ts";
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version" };
-const SYSTEM_PROMPT = `Eres un formateador de contenido para base de datos de campañas D&D 5e. Dado contenido generado, extrae y devuelve SOLO JSON válido: {"title":"título","summary":"resumen","tags":["tags"],"relationships":[{"type":"npc|location|faction|item|event","name":"nombre","role":"rol"}],"reusable_elements":[{"type":"npc|location|encounter|item|hook|faction","name":"nombre","description":"desc"}],"narrative_hooks":[{"hook":"desc","priority":"alta|media|baja","connects_to":"qué conecta"}]}`;
+const SYSTEM_PROMPT = `Eres un formateador de contenido para base de datos de campañas D&D 5.5e (reglas 2024). Dado contenido generado, extrae y devuelve SOLO JSON válido: {"title":"título","summary":"resumen","tags":["tags"],"relationships":[{"type":"npc|location|faction|item|event","name":"nombre","role":"rol"}],"reusable_elements":[{"type":"npc|location|encounter|item|hook|faction","name":"nombre","description":"desc"}],"narrative_hooks":[{"hook":"desc","priority":"alta|media|baja","connects_to":"qué conecta"}]}`;
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {

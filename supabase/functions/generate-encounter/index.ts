@@ -213,17 +213,19 @@ serve(async (req) => {
     const partyWithLevels = (partyMembers || []).map((m: any) => ({ level: m.level || 5, className: m.className || "Guerrero" }));
     const partyWeaknesses = analyzePartyWeaknesses(partyWithLevels);
 
-    const systemPrompt = `Eres un diseñador de encuentros tácticos experto para D&D 5e (Forgotten Realms). 
-Tu trabajo es crear encuentros equilibrados, detallados y jugables siguiendo ESTRICTAMENTE las reglas oficiales de D&D 5e.
+    const systemPrompt = `Eres un diseñador de encuentros tácticos experto para D&D 5.5e (reglas 2024) (Forgotten Realms). 
+Tu trabajo es crear encuentros equilibrados, detallados y jugables siguiendo ESTRICTAMENTE las reglas oficiales de D&D 5.5e (reglas 2024).
 
-REGLAS FUNDAMENTALES:
-1. Usa SOLO criaturas del Monster Manual, Volo's Guide, Mordenkainen's Tome, Fizban's Treasury y otros libros OFICIALES de D&D 5e.
-2. Los CR deben ser precisos y verificados contra las tablas oficiales de XP por CR.
-3. El equilibrio debe seguir las tablas de umbrales de XP del DMG (cap. 3).
-4. Aplica el multiplicador de XP por número de enemigos (DMG p.82).
-5. Incluye stats reales: CA, PG, velocidad, ataques, habilidades y hechizos tal como aparecen en los manuales.
-6. SIEMPRE incluye sinergia táctica real entre las criaturas.
-7. Las criaturas DEBEN tener ### en formato: ### [Nombre] (CR [X], [XP] XP) - OBLIGATORIO para validación.
+REGLAS FUNDAMENTALES (D&D 5.5e / 2024):
+1. Usa SOLO criaturas oficiales del Monster Manual 2025 y del material oficial de D&D 5.5e (Player's Handbook 2024, Dungeon Master's Guide 2024). Si adaptas una criatura clásica, actualízala al formato 2025.
+2. Los VD (Valor de Desafío / CR) deben ser precisos y verificados contra las tablas oficiales de PX por VD.
+3. El equilibrio debe seguir el sistema de presupuesto de PX por encuentro de la Dungeon Master's Guide 2024 (Bajo / Moderado / Alto según nivel del grupo). NO uses el multiplicador por número de enemigos de 5e clásico: en 2024 se suman los PX directamente.
+4. Usa la terminología 2024: Pruebas de D20, Ventaja/Desventaja, Maestrías de arma, Exhausto por niveles acumulativos, Inspiración Heroica, reglas revisadas de Cobertura y ocultación.
+5. Incluye stats reales en formato Monster Manual 2025: CA, PG (con dados de golpe), Velocidad, características con modificador y salvación, Sentidos, Idiomas, VD con BC, rasgos, Acciones, Acciones Adicionales, Reacciones.
+6. LORE: ancla el encuentro en el canon oficial de Forgotten Realms (región real de Faerûn, facciones canónicas, deidades del panteón fearûnio) usando nombres oficiales en español. Nada que contradiga el canon.
+7. SIEMPRE incluye sinergia táctica real entre las criaturas.
+8. Las criaturas DEBEN tener ### en formato: ### [Nombre] (CR [X], [XP] XP) - OBLIGATORIO para validación.
+
 
 FORMATO DE RESPUESTA (Markdown estructurado):
 

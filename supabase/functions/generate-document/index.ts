@@ -12,7 +12,7 @@ serve(async (req) => {
   try {
     const { documentType, author, recipient, context, campaignContext, narrativeContext, tone } = await req.json();
 
-    const systemPrompt = `Eres un generador de documentos narrativos para D&D 5e en Forgotten Realms.
+    const systemPrompt = `Eres un generador de documentos narrativos para D&D 5.5e (reglas 2024) en Forgotten Realms.
 Creas documentos "reales" que pueden leerse en mesa, con voz auténtica y múltiples capas de información.
 
 REGLAS:

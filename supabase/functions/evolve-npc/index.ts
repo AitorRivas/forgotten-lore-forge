@@ -12,7 +12,7 @@ serve(async (req) => {
   try {
     const { npcs, recentEvents, partyDecisions, campaignContext, narrativeContext } = await req.json();
 
-    const systemPrompt = `Eres un motor de evolución de PNJs para D&D 5e en Forgotten Realms.
+    const systemPrompt = `Eres un motor de evolución de PNJs para D&D 5.5e (reglas 2024) en Forgotten Realms.
 Analizas PNJs existentes junto con eventos recientes y generas evoluciones narrativas realistas y coherentes.
 
 REGLAS:
