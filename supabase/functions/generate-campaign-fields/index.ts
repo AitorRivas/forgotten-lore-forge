@@ -3,7 +3,7 @@ import { callAIWithFallback } from "../_shared/ai-provider.ts";
 
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version" };
 
-const SYSTEM_PROMPT = `Eres un diseñador profesional de campañas de D&D 5e en Forgotten Realms (Faerûn).
+const SYSTEM_PROMPT = `Eres un diseñador profesional de campañas de D&D 5.5e (reglas 2024) en Forgotten Realms (Faerûn).
 
 Genera los datos de una campaña original en formato JSON puro. Sin texto fuera del JSON.
 
@@ -33,7 +33,7 @@ serve(async (req) => {
 
   try {
     const aiResult = await callAIWithFallback(
-      [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: "Genera una campaña original e inesperada para D&D 5e en Faerûn. Sorpréndeme." }],
+      [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: "Genera una campaña original e inesperada para D&D 5.5e (reglas 2024) en Faerûn. Sorpréndeme." }],
       { model: "gemini-2.5-flash" }
     );
 

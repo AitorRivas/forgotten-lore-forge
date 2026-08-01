@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Eres un experto en lore de Forgotten Realms y editor narrativo de campañas de D&D 5e.
+const SYSTEM_PROMPT = `Eres un experto en lore de Forgotten Realms y editor narrativo de campañas de D&D 5.5e (reglas 2024).
 
 Tu trabajo es REVISAR contenido generado y validar su coherencia. No inventas contenido nuevo — solo corriges y señalas problemas.
 
@@ -53,8 +53,8 @@ serve(async (req) => {
   try {
     const { customPrompt } = await req.json();
     const prompt = customPrompt
-      ? `Revisa y valida el siguiente contenido para D&D 5e en Forgotten Realms:\n\n${customPrompt}`
-      : `Genera un ejemplo de informe de validación para una misión típica de D&D 5e en Forgotten Realms.`;
+      ? `Revisa y valida el siguiente contenido para D&D 5.5e (reglas 2024) en Forgotten Realms:\n\n${customPrompt}`
+      : `Genera un ejemplo de informe de validación para una misión típica de D&D 5.5e (reglas 2024) en Forgotten Realms.`;
 
     const aiResult = await callAIWithFallback(
       [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: prompt }],

@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 const NPC_PROMPTS: Record<string, string> = {
-  menor: `Eres un creador de PNJ menores para D&D 5e en Forgotten Realms.
+  menor: `Eres un creador de PNJ menores para D&D 5.5e (reglas 2024) en Forgotten Realms.
 Genera un PNJ BREVE y funcional. Solo lo esencial para improvisación rápida.
 
 FORMATO (markdown):
@@ -37,7 +37,7 @@ FORMATO (markdown):
 ### 💡 Notas para el DM
 [Cómo interpretarlo en mesa: voz sugerida, actitud, reacción ante los aventureros]`,
 
-  relevante: `Eres un experto creador de PNJs para D&D 5e en Forgotten Realms.
+  relevante: `Eres un experto creador de PNJs para D&D 5.5e (reglas 2024) en Forgotten Realms.
 Genera PNJs completos con ficha de combate y profundidad narrativa.
 
 FORMATO (markdown):
@@ -48,7 +48,7 @@ FORMATO (markdown):
 - **Raza:** [raza]
 - **Género:** [género]
 - **Edad:** [edad]
-- **Clase/Tipo:** [clase D&D 5e]
+- **Clase/Tipo:** [clase D&D 5.5e (reglas 2024)]
 - **Rol:** [función]
 - **Alineamiento:** [real] (aparente: [aparente])
 - **CR:** [valor]
@@ -121,7 +121,7 @@ FORMATO (markdown):
 ### 💡 Notas para el DM
 [Tácticas de combate preferidas, consejos de interpretación]`,
 
-  "antagonista principal": `Eres un experto creador de antagonistas principales para D&D 5e en Forgotten Realms.
+  "antagonista principal": `Eres un experto creador de antagonistas principales para D&D 5.5e (reglas 2024) en Forgotten Realms.
 Genera un villano con ficha de combate COMPLETA, tácticas avanzadas y profundidad narrativa extrema.
 
 FORMATO (markdown):
@@ -132,7 +132,7 @@ FORMATO (markdown):
 - **Raza:** [raza]
 - **Género:** [género]
 - **Edad:** [edad]
-- **Clase/Tipo:** [clase D&D 5e, puede ser multiclase]
+- **Clase/Tipo:** [clase D&D 5.5e (reglas 2024), puede ser multiclase]
 - **Rol:** Antagonista Principal
 - **Alineamiento:** [real] (aparente: [aparente])
 - **CR:** [valor — debe ser desafiante para el nivel indicado]
@@ -237,7 +237,7 @@ serve(async (req) => {
     const category = importancia || "relevante";
     const systemPrompt = NPC_PROMPTS[category] || NPC_PROMPTS["relevante"];
 
-    let userPrompt = `Genera un PNJ ${category === "menor" ? "breve" : category === "antagonista principal" ? "antagonista principal" : "completo"} para D&D 5e en Forgotten Realms.`;
+    let userPrompt = `Genera un PNJ ${category === "menor" ? "breve" : category === "antagonista principal" ? "antagonista principal" : "completo"} para D&D 5.5e (reglas 2024) en Forgotten Realms.`;
     
     const constraints: string[] = [];
     if (nivel) constraints.push(`NIVEL APROXIMADO: ${nivel}. Adapta estadísticas, CR y equipo a este nivel.`);

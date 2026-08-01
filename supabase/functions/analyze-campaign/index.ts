@@ -8,7 +8,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ANALYSIS_PROMPT = `Eres un analista narrativo experto para campañas de Dungeons & Dragons 5e en Forgotten Realms.
+const ANALYSIS_PROMPT = `Eres un analista narrativo experto para campañas de Dungeons & Dragons 5.5e (reglas 2024) en Forgotten Realms.
 
 Tu trabajo es analizar TODA la información disponible de una campaña y generar un BRIEFING ESTRUCTURADO.
 
@@ -97,7 +97,7 @@ serve(async (req) => {
 
     const aiResult = await callAIWithFallback(
       [
-        { role: "system", content: "Eres un analista narrativo experto para campañas de D&D 5e. Responde SOLO con JSON válido, sin markdown ni backticks." },
+        { role: "system", content: "Eres un analista narrativo experto para campañas de D&D 5.5e (reglas 2024). Responde SOLO con JSON válido, sin markdown ni backticks." },
         { role: "user", content: ANALYSIS_PROMPT + "\n\n" + analysisInput },
       ],
       { model: "gemini-2.5-flash" }

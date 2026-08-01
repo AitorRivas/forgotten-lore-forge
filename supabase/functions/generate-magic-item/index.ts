@@ -7,9 +7,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Eres un experto diseñador de objetos mágicos para Dungeons & Dragons 5e ambientados en Forgotten Realms (Reinos Olvidados).
+const SYSTEM_PROMPT = `Eres un experto diseñador de objetos mágicos para Dungeons & Dragons 5.5e (reglas 2024) ambientados en Forgotten Realms (Reinos Olvidados).
 
-Genera objetos mágicos completos, equilibrados, narrativamente ricos y mecánicamente correctos según las reglas de D&D 5e.
+Genera objetos mágicos completos, equilibrados, narrativamente ricos y mecánicamente correctos según las reglas de D&D 5.5e (reglas 2024).
 
 REGLAS DE BALANCE:
 - Común: efectos menores, utilidad o estéticos. Sin bonificadores de combate significativos.
@@ -99,7 +99,7 @@ serve(async (req) => {
   try {
     const { customPrompt, tipo, rareza, nivel, region, tono, rolObjeto, esArtefacto, escalable } = await req.json();
 
-    let userPrompt = "Genera un objeto mágico único, equilibrado y narrativamente rico para D&D 5e en Forgotten Realms.";
+    let userPrompt = "Genera un objeto mágico único, equilibrado y narrativamente rico para D&D 5.5e (reglas 2024) en Forgotten Realms.";
     
     const constraints: string[] = [];
     if (tipo) constraints.push(`TIPO DE OBJETO: ${tipo}. El objeto DEBE ser de este tipo.`);

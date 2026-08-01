@@ -538,7 +538,7 @@ export async function generateWithFallback(
 function buildStandardizedSystemPrompt(originalSystem: string, meta: GenerationMetadata): string {
   const parts: string[] = [];
 
-  parts.push(`Eres un asistente experto para Dungeon Masters de Dungeons & Dragons 5e.
+  parts.push(`Eres un asistente experto para Dungeon Masters de Dungeons & Dragons 5.5e (reglas 2024).
 Tu tarea es generar contenido de tipo: ${meta.contentType}.
 
 REGLAS UNIVERSALES DE FORMATO:

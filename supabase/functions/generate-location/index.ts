@@ -3,7 +3,7 @@ import { generateWithFallback, parseAIJsonResponse } from "../_shared/ai-provide
 
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version" };
 
-const SYSTEM_PROMPT = `Eres un diseñador de localizaciones vivas para D&D 5e en Forgotten Realms.
+const SYSTEM_PROMPT = `Eres un diseñador de localizaciones vivas para D&D 5.5e (reglas 2024) en Forgotten Realms.
 
 Genera localizaciones detalladas, jugables, con secretos, facciones, PNJs, rumores y conflictos activos.
 

@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Eres un arquitecto narrativo profesional para campañas de Dungeons & Dragons 5e en Forgotten Realms.
+const SYSTEM_PROMPT = `Eres un arquitecto narrativo profesional para campañas de Dungeons & Dragons 5.5e (reglas 2024) en Forgotten Realms.
 
 Tu trabajo es construir la ESTRUCTURA COMPLETA de una campaña: actos, capítulos, misiones detalladas, con evolución narrativa coherente.
 
@@ -70,7 +70,7 @@ serve(async (req) => {
 
   try {
     const { customPrompt } = await req.json();
-    let userPrompt = "Construye la estructura completa de una campaña épica de D&D 5e en Forgotten Realms con actos, capítulos, misiones detalladas y finales múltiples.";
+    let userPrompt = "Construye la estructura completa de una campaña épica de D&D 5.5e (reglas 2024) en Forgotten Realms con actos, capítulos, misiones detalladas y finales múltiples.";
     if (customPrompt) userPrompt += `\n\nINSTRUCCIONES DEL USUARIO:\n${customPrompt}`;
 
     const aiResult = await callAIWithFallback(

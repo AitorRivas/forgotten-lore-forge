@@ -213,11 +213,11 @@ serve(async (req) => {
     const partyWithLevels = (partyMembers || []).map((m: any) => ({ level: m.level || 5, className: m.className || "Guerrero" }));
     const partyWeaknesses = analyzePartyWeaknesses(partyWithLevels);
 
-    const systemPrompt = `Eres un diseñador de encuentros tácticos experto para D&D 5e (Forgotten Realms). 
-Tu trabajo es crear encuentros equilibrados, detallados y jugables siguiendo ESTRICTAMENTE las reglas oficiales de D&D 5e.
+    const systemPrompt = `Eres un diseñador de encuentros tácticos experto para D&D 5.5e (reglas 2024) (Forgotten Realms). 
+Tu trabajo es crear encuentros equilibrados, detallados y jugables siguiendo ESTRICTAMENTE las reglas oficiales de D&D 5.5e (reglas 2024).
 
 REGLAS FUNDAMENTALES:
-1. Usa SOLO criaturas del Monster Manual, Volo's Guide, Mordenkainen's Tome, Fizban's Treasury y otros libros OFICIALES de D&D 5e.
+1. Usa SOLO criaturas del Monster Manual, Volo's Guide, Mordenkainen's Tome, Fizban's Treasury y otros libros OFICIALES de D&D 5.5e (Player's Handbook 2024, Dungeon Master's Guide 2024, Monster Manual 2025).
 2. Los CR deben ser precisos y verificados contra las tablas oficiales de XP por CR.
 3. El equilibrio debe seguir las tablas de umbrales de XP del DMG (cap. 3).
 4. Aplica el multiplicador de XP por número de enemigos (DMG p.82).

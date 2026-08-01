@@ -34,7 +34,7 @@ CAMPOS ADICIONALES (modo extendido):
   "detalle_ambiental": "string",
   "pnj_implicados": [{"nombre":"string","rol":"string","motivacion":"string"},{"nombre":"string","rol":"string","motivacion":"string"}]` : "";
 
-  return `Eres un motor profesional de generación narrativa para D&D 5e ambientado en Forgotten Realms.
+  return `Eres un motor profesional de generación narrativa para D&D 5.5e (reglas 2024) ambientado en Forgotten Realms.
 
 OBJETIVO: Generar misiones como arcos narrativos completos listos para jugar.
 
@@ -223,7 +223,7 @@ serve(async (req) => {
     // PARTIAL REGENERATION
     if (regenerateField) {
       const limits = mode === "extended" ? EXTENDED_LIMITS : NORMAL_LIMITS;
-      const fieldPrompt = `Regenera SOLO el campo "${regenerateField}" de una misión D&D 5e.
+      const fieldPrompt = `Regenera SOLO el campo "${regenerateField}" de una misión D&D 5.5e (reglas 2024).
 Contexto: Tipo ${tipo || "aventura"}, Ubicación: ${ubicacion || "Faerûn"}, Nivel: ${nivelGrupo || "1-5"}, Tono: ${tono || "épico"}.
 ${customPrompt ? `Contexto adicional: ${customPrompt}` : ""}
 Responde SOLO con el texto del campo, sin JSON, sin comillas, sin prefijos.
@@ -231,7 +231,7 @@ Máximo ${limits[regenerateField as keyof typeof limits] || 600} caracteres.
 Frases completas. Nunca cortes palabras.`;
 
       const aiResult = await callAIWithFallback(
-        [{ role: "system", content: "Eres un motor narrativo para D&D 5e en Forgotten Realms. Responde SOLO con el texto solicitado, sin formato JSON ni markdown." },
+        [{ role: "system", content: "Eres un motor narrativo para D&D 5.5e (reglas 2024) en Forgotten Realms. Responde SOLO con el texto solicitado, sin formato JSON ni markdown." },
          { role: "user", content: fieldPrompt }],
         { model: "gemini-2.5-flash", stream: false, userId, temperature: 0.8 }
       );
